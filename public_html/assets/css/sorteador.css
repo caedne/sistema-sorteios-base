@@ -1,0 +1,181 @@
+/* =========================================
+   ARQUIVO: assets/css/sorteador.css
+   DESCRIÇÃO: Estilos do Sorteador Profissional
+   ========================================= */
+
+* { box-sizing: border-box; }
+
+body { 
+    font-family: 'Arial', sans-serif; 
+    background-color: #020617; 
+    margin: 0; 
+    display: flex; 
+    height: 720px;       /* Fixamos a altura HD */
+    width: 1280px;       /* Fixamos a largura HD */
+    min-width: 1280px;   /* Garantia: Nunca diminua menos que isso */
+    color: white; 
+    overflow: hidden; 
+}
+/* SIDEBAR E RELÓGIO */
+.sidebar {
+    width: 320px;
+    background-color: #1e293b; 
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+    border-right: 4px solid #f1c40f;
+    z-index: 100;
+    height: 100vh;
+}
+
+.relogio-container {
+    background: rgba(0,0,0,0.5);
+    padding: 15px;
+    border-radius: 10px;
+    border: 2px solid #f1c40f;
+    margin-bottom: 15px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+#dataLive, #horaLive { 
+    font-size: 26px; 
+    color: #f1c40f; 
+    font-weight: 900; 
+    font-family: 'Courier New', monospace; 
+    line-height: 1.1;
+}
+
+#dataLive { color: #fff; }
+
+.logo-container { 
+    text-align: center; 
+    color: #f1c40f; 
+    font-weight: 900; 
+    font-size: 22px; 
+    margin-bottom: 20px; 
+    text-transform: uppercase; 
+    line-height: 1.2; 
+}
+
+.cliente-nome { 
+    display: block; 
+    color: #fff; 
+    font-size: 14px; 
+    letter-spacing: 1px; 
+    font-weight: 400; 
+}
+
+/* PAINEL DE GANHADORES */
+.painel-vencedores { 
+    width: 100%; 
+    background: rgba(0,0,0,0.4); 
+    border-radius: 12px; 
+    padding: 10px; 
+    flex: 1; 
+    overflow-y: auto; 
+    border: 1px solid #334155; 
+    margin-bottom: 10px;
+}
+
+.item-card { 
+    background: #334155; 
+    padding: 12px; 
+    margin-bottom: 10px; 
+    border-radius: 8px; 
+    border-left: 5px solid #f1c40f; 
+    font-size: 13px; 
+}
+
+/* ÁREA CENTRAL E GLOBO */
+.main-content { 
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: space-between; 
+    background: radial-gradient(circle at center, #1e293b 0%, #020617 100%); 
+    position: relative; 
+    padding: 20px 0;
+    height: 100vh;
+}
+
+#topoInfo { text-align: center; margin-top: 10px; }
+
+.categoria-tag { 
+    background: #f1c40f; 
+    color: #000; 
+    padding: 2px 10px; 
+    border-radius: 5px; 
+    font-weight: 900; 
+    font-size: 14px; 
+    margin-bottom: 5px; 
+    display: inline-block; 
+}
+
+#infoPremio { 
+    color: #fff; 
+    text-transform: uppercase; 
+    letter-spacing: 2px; 
+    margin: 5px 0; 
+    font-size: 26px; 
+    font-weight: 900; 
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5); 
+}
+
+.sub-titulo { color: #f1c40f; font-size: 16px; font-weight: bold; opacity: 0.9; }
+
+.maquina-box { 
+    position: relative; 
+    width: 100%; 
+    height: 550px; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+}
+
+#bolinhaSorteada {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
+    width: 270px; height: 270px;
+    background: radial-gradient(circle at 30% 30%, #ffffff 0%, #f1c40f 45%, #856404 100%);
+    border-radius: 50%; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: center;
+    color: #000; 
+    z-index: 1000; 
+    box-shadow: 0 0 100px rgba(0,0,0,1); 
+    border: 8px solid #fff;
+    transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* BOTÕES */
+.btn-sortear { 
+    background: linear-gradient(180deg, #2ecc71, #27ae60); 
+    color: white; 
+    border: none; 
+    padding: 18px 70px; 
+    font-size: 24px; 
+    font-weight: bold; 
+    border-radius: 50px; 
+    cursor: pointer; 
+    box-shadow: 0 6px 0 #1e8449; 
+    text-transform: uppercase; 
+}
+
+.btn-sortear:disabled { opacity: 0; pointer-events: none; }
+
+#btnWhats { 
+    background: #25d366; 
+    display: none; 
+    text-decoration: none; 
+    padding: 18px 50px; 
+    border-radius: 50px; 
+    color: white; 
+    font-weight: bold; 
+    box-shadow: 0 6px 0 #128c7e; 
+    font-size: 20px;
+}

@@ -1,0 +1,452 @@
+/* =========================================
+   ESTRUTURA BASE E ESPAÇAMENTOS (PC)
+   ========================================= */
+
+/* 1. Ajuste do Conteúdo */
+.conteudo-principal {
+    margin-left: 210px;
+    width: calc(100% - 210px);
+    padding: 20px;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    /* Corta o mal pela raiz: impede rolagem horizontal aqui */
+}
+
+.submenu-area-jogos {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 0 0 20px 0;
+    box-sizing: border-box;
+}
+
+.jogos-body {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto 20px auto;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    box-sizing: border-box;
+}
+
+.conteudo-aba-flex {
+    display: flex;
+    gap: 20px;
+    align-items: stretch;
+    min-height: calc(100vh - 120px);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* =========================================
+   COLUNAS: NÚMEROS E PRÊMIOS
+   ========================================= */
+.coluna-numeros {
+    flex: 3;
+    background: white;
+    padding: 20px;
+    /* Levemente reduzido para telas médias */
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    border: 1px solid #e2e8f0;
+    min-width: 0;
+    /* A MÁGICA 1: Permite que a coluna encolha no notebook */
+}
+
+.coluna-premios {
+    flex: 1;
+    min-width: 240px;
+    /* Reduzido de 260 para dar mais fôlego */
+    background: white;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    border: 1px solid #e2e8f0;
+}
+
+/* =========================================
+   GRID DOS NÚMEROS E QUADRADINHOS
+   ========================================= */
+.grid-unificado {
+    display: grid;
+    /* A MÁGICA 2: minmax(0, 1fr) impede o estouro da tela */
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+    /* Reduzido de 15 para melhor encaixe */
+    flex-grow: 1;
+    margin-bottom: 25px;
+}
+
+/* Grids de Suporte (50 ou 100 números) */
+.grid-25 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.grid-50,
+.grid-100 {
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.quadrado-numero {
+    width: 100%;
+    height: 100%;
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    border: 2px solid #cbd5e1;
+    background: #f8fafc;
+    transition: all 0.2s;
+    padding: 5px;
+    box-sizing: border-box;
+    overflow: hidden;
+    /* Impede que textos gigantes vazem */
+}
+
+.numero-grande {
+    font-size: clamp(20px, 3vw, 42px) !important;
+    /* Ajustado para telas de note */
+    font-weight: 900;
+}
+
+.nome-pequeno {
+    font-size: clamp(9px, 1.2vw, 13px) !important;
+    /* Ajustado para telas de note */
+    font-weight: 800;
+    margin-top: 5px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 98%;
+}
+
+.quadrado-numero.pago {
+    background: #22c55e !important;
+    color: white !important;
+}
+
+.quadrado-numero.pendente {
+    background: #facc15 !important;
+    color: #451a03 !important;
+}
+
+/* Efeito de clique e hover mágico */
+.quadrado-numero[onclick] {
+    cursor: pointer;
+    position: relative;
+    z-index: 1;
+}
+
+.quadrado-numero[onclick]:hover {
+    transform: scale(1.08);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    z-index: 10;
+    border-color: #8b5cf6;
+}
+
+.quadrado-numero.pago:hover,
+.quadrado-numero.pendente:hover {
+    transform: scale(1.05);
+    filter: brightness(1.1);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    z-index: 10;
+}
+
+/* =========================================
+   RODAPÉ E BOTÕES
+   ========================================= */
+.status-barra-container {
+    margin-top: auto;
+    width: 100%;
+}
+
+.stat-line {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 900;
+    color: #000;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.bar-bg {
+    height: 14px;
+    background: #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 25px;
+}
+
+.bar-fill {
+    height: 100%;
+    background: #22c55e;
+    transition: width 0.3s ease;
+}
+
+.botoes-acao-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    width: 100%;
+}
+
+.btn-acao-custom {
+    flex: 1 1 auto;
+    padding: 12px 6px;
+    border-radius: 8px;
+    border: none;
+    font-weight: 900;
+    font-size: 10px;
+    color: white;
+    text-transform: uppercase;
+    cursor: pointer;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    transition: transform 0.2s;
+    white-space: nowrap;
+}
+
+.btn-acao-custom:hover {
+    transform: translateY(-2px);
+}
+
+/* Cores dos botões */
+.btn-reenviar {
+    background: #f59e0b;
+}
+
+.btn-alerta {
+    background: #ec4899;
+}
+
+.btn-tudo-pago {
+    background: #10b981;
+    cursor: default;
+}
+
+.btn-chamar {
+    background: #0284c7;
+}
+
+.btn-sortear-manual {
+    background: #8b5cf6;
+}
+
+.btn-cancelar-outline {
+    background: white;
+    color: #ef4444;
+    border: 2px solid #ef4444;
+    width: 100%;
+}
+
+.btn-cancelar-outline:hover {
+    background: #fee2e2;
+}
+
+/* =========================================
+   COLUNA DE PRÊMIOS E TELA VAZIA
+   ========================================= */
+.titulo-premios {
+    text-align: center;
+    border-bottom: 2px solid #22c55e;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+    font-weight: 900;
+}
+
+.lista-premios {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    flex-grow: 1;
+}
+
+.lista-premios li {
+    display: flex;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px dashed #e2e8f0;
+    font-weight: 600;
+    color: #475569;
+    font-size: 13px;
+}
+
+.icone-premio {
+    margin-right: 12px;
+    font-size: 16px;
+}
+
+/* Card Vazio */
+.card-vazio {
+    background: white;
+    padding: 60px 30px;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border: 1px solid #e2e8f0;
+    margin-top: 20px;
+    min-height: 400px;
+    box-sizing: border-box;
+}
+
+.icone-vazio {
+    font-size: 70px;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.texto-vazio {
+    color: #1e293b;
+    margin-bottom: 10px;
+    font-size: 24px;
+    font-weight: 800;
+}
+
+.subtexto-vazio {
+    color: #64748b;
+    margin-bottom: 35px;
+    font-size: 16px;
+}
+
+.btn-novo-sorteio {
+    padding: 18px 45px;
+    border-radius: 50px;
+    text-decoration: none;
+    font-weight: 900;
+    font-size: 15px;
+    text-transform: uppercase;
+    transition: 0.2s;
+    display: inline-block;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-novo-sorteio:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.btn-amarelo {
+    background: #eab308;
+    color: #1e293b;
+    border: 1px solid #ca8a04;
+}
+
+.btn-azul {
+    background: #0284c7;
+    color: white;
+    border: 1px solid #0369a1;
+}
+
+/* =========================================
+   MODAL DE SORTEIO MANUAL
+   ========================================= */
+.modal-sorteio-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.9);
+    z-index: 10000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modal-sorteio-box {
+    background: white;
+    border-radius: 20px;
+    width: 100%;
+    max-width: 500px;
+    padding: 25px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* =========================================
+   A MÁGICA DA RESPONSIVIDADE
+   ========================================= */
+
+@media (max-width: 1200px) {
+
+    /* Telas médias (Notebooks menores/Tablets em pé) 
+       Joga os prêmios para baixo da cartela de forma limpa */
+    .conteudo-aba-flex {
+        flex-direction: column;
+    }
+
+    .coluna-premios {
+        width: 100%;
+        min-width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+
+    /* Celulares: Recolhe o menu lateral e ajusta o topo */
+    .conteudo-principal {
+        margin-left: 0 !important;
+        width: 100% !important;
+        padding-top: 100px !important;
+    }
+
+    /* O Grid principal sempre volta pra 5 em celulares */
+    .grid-unificado,
+    .grid-50,
+    .grid-100 {
+        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+    }
+
+    .quadrado-numero {
+        min-height: 65px !important;
+    }
+
+    /* Empilha os botões de ação um em cima do outro */
+    .botoes-acao-row {
+        flex-direction: column !important;
+    }
+
+    .btn-acao-custom {
+        padding: 15px;
+        font-size: 13px;
+        /* Maior pro dedo bater certo */
+    }
+
+    /* Ajuste do Card Vazio no Celular */
+    .card-vazio {
+        padding: 40px 20px;
+        min-height: 300px;
+    }
+
+    .icone-vazio {
+        font-size: 50px;
+    }
+
+    .texto-vazio {
+        font-size: 20px;
+    }
+}

@@ -1,0 +1,103 @@
+/* Container Principal (Sticky no topo) */
+.cabecalho-abas {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin: 0 !important; 
+    padding: 15px 0 !important;
+    position: sticky;
+    top: 0;
+    z-index: 100; /* CORRIGIDO: era 990, agora 100 (abaixo do sidebar) */
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+/* A "Cápsula" cinza que segura os botões */
+.botoes-categoria {
+    display: flex;
+    gap: 10px;
+    background: #e2e8f0; 
+    padding: 5px;
+    border-radius: 50px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* Estilo Base dos Botões */
+.btn-capsula {
+    border: none;
+    padding: 10px 25px;
+    border-radius: 50px;
+    font-weight: 800;
+    cursor: pointer;
+    font-size: 14px;
+    text-transform: uppercase;
+    color: #64748b;
+    background: transparent;
+    transition: all 0.2s ease-in-out;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+}
+
+/* Efeito Hover (passar o mouse) */
+.btn-capsula:hover {
+    background: rgba(255, 255, 255, 0.5);
+    color: #334155;
+    transform: translateY(-1px);
+}
+
+/* Ajuste dos Emojis/Ícones */
+.btn-capsula span { 
+    font-size: 16px; 
+    line-height: 1;
+}
+
+/* --- ESTADOS ATIVOS (CORES ESPECÍFICAS) --- */
+
+/* Carnes (Verde) */
+.btn-capsula.ativo[data-cat="carnes"] { 
+    background-color: #22c55e !important; 
+    color: white !important; 
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+
+/* Bebidas (Azul) */
+.btn-capsula.ativo[data-cat="bebidas"] { 
+    background-color: #0284c7 !important; 
+    color: white !important; 
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+}
+
+/* Teste (Roxo) */
+.btn-capsula.ativo[data-cat="teste"] { 
+    background-color: #8b5cf6 !important; 
+    color: white !important; 
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+/* ========================================= */
+/* RESPONSIVIDADE MOBILE */
+/* ========================================= */
+@media (max-width: 768px) {
+    .cabecalho-abas {
+        padding: 10px 0 !important;
+        position: relative; /* No mobile, não precisa ser sticky se já tem sidebar fixo */
+        z-index: 10; /* Bem abaixo do sidebar (9999) */
+    }
+    
+    .botoes-categoria {
+        gap: 6px;
+        padding: 4px;
+    }
+    
+    .btn-capsula {
+        padding: 8px 16px;
+        font-size: 12px;
+        gap: 6px;
+    }
+    
+    .btn-capsula span {
+        font-size: 14px;
+    }
+}

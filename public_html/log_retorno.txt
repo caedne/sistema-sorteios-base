@@ -1,0 +1,12 @@
+
+--------------------------------
+10/03/2026 22:03:34 - CHEGOU NOTIFICAÇÃO
+Status MP: pending | ID Pix: 149808783398 | Ref: 
+
+--------------------------------
+11/03/2026 22:05:46 - CHEGOU NOTIFICAÇÃO
+Status MP: cancelled | ID Pix: 149808783398 | Ref: 
+
+--------------------------------
+11/03/2026 22:05:50 - CHEGOU NOTIFICAÇÃO
+Status MP: cancelled | ID Pix: 149808783398 | Ref: 

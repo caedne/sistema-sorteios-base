@@ -1,0 +1,324 @@
+/* ARQUIVO: assets/css/agenda.css - (REVISÃO RESPONSIVA FINAL) */
+
+/* ============================================================
+   1. ESTRUTURA DE LAYOUT
+   ============================================================ */
+.conteudo-principal {
+    margin-left: 210px;
+    width: calc(100% - 210px);
+    padding: 20px 30px;
+    box-sizing: border-box;
+    min-height: 100vh;
+    overflow-x: hidden;
+    /* Previne barras de rolagem globais fantasmas */
+}
+
+.container {
+    max-width: 1600px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* Header */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.header h1 {
+    font-size: 24px;
+    margin: 0;
+    color: #1e293b;
+    font-weight: 800;
+}
+
+/* Cards do Topo */
+.stats-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.stat-card {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    border-left: 5px solid #cbd5e1;
+    min-width: 0;
+    /* Previne blowout */
+}
+
+.card-roxo {
+    border-left-color: #8b5cf6;
+}
+
+.card-rosa {
+    border-left-color: #ec4899;
+}
+
+.card-azul {
+    border-left-color: #06b6d4;
+}
+
+.stat-card h3 {
+    margin: 0 0 5px;
+    font-size: 11px;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 800;
+}
+
+.stat-card .valor {
+    font-size: 24px;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0;
+}
+
+/* Busca */
+.barra-busca {
+    display: flex;
+    background: white;
+    padding: 6px;
+    border-radius: 50px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    margin-bottom: 15px;
+    gap: 10px;
+    border: 1px solid #cbd5e1;
+    align-items: center;
+}
+
+.barra-busca input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 6px 15px;
+    font-size: 13px;
+    outline: none;
+    color: #334155;
+    min-width: 0;
+    /* Previne blowout no input */
+}
+
+/* Botões */
+.btn {
+    padding: 8px 20px;
+    border-radius: 50px;
+    border: none;
+    font-weight: 800;
+    cursor: pointer;
+    font-size: 11px;
+    text-decoration: none;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+}
+
+.btn-novo {
+    background: #22c55e;
+    color: white;
+}
+
+.btn-buscar {
+    background: #0284c7;
+    color: white;
+    border-radius: 50px;
+    padding: 8px 20px;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-limpar {
+    background: #64748b;
+    color: white;
+    border-radius: 50px;
+    padding: 8px 20px;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+}
+
+/* Tabela Super Compacta */
+.tabela-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    width: 100%;
+    overflow-x: auto;
+    /* MÁGICA: Barra de rolagem apenas na tabela no celular */
+}
+
+.tabela {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 900px;
+    /* Trava a tabela para não amassar os botões */
+}
+
+.tabela th {
+    background: #1e293b;
+    color: #facc15;
+    padding: 10px 15px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.tabela td {
+    padding: 4px 15px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    font-size: 12px;
+    vertical-align: middle;
+    height: 35px;
+}
+
+.tabela tr:hover {
+    background: #f8fafc;
+}
+
+/* Ações e Badges */
+.btn-acao {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 800;
+    font-size: 10px;
+    color: white;
+    text-decoration: none;
+    margin-right: 3px;
+    border: none;
+    cursor: pointer;
+    text-transform: uppercase;
+}
+
+.btn-ver {
+    background: #0284c7;
+}
+
+.btn-editar {
+    background: #f59e0b;
+}
+
+.btn-excluir {
+    background: #ef4444;
+}
+
+.badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 800;
+}
+
+.badge-azul {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.saldo-positivo {
+    color: #16a34a;
+    font-weight: 800;
+}
+
+.saldo-zero {
+    color: #94a3b8;
+}
+
+/* Paginação */
+.paginacao {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+    margin-top: 15px;
+    padding-bottom: 20px;
+}
+
+.btn-paginacao {
+    padding: 6px 12px;
+    background: #e2e8f0;
+    color: #1e293b;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 12px;
+    transition: 0.2s;
+}
+
+.btn-paginacao.ativo {
+    background: #0284c7;
+    color: white;
+}
+
+.btn-paginacao:hover:not(.ativo) {
+    background: #cbd5e1;
+}
+
+/* ============================================================
+   3. RESPONSIVIDADE
+   ============================================================ */
+
+/* Tablet e Notebook Menor (Ajuste intermediário) */
+@media (max-width: 1100px) {
+    .stats-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Celulares */
+@media (max-width: 768px) {
+    .conteudo-principal {
+        margin-left: 0;
+        width: 100%;
+        padding: 15px;
+        padding-top: 80px;
+        /* Margem segura pro menu do topo */
+    }
+
+    .header {
+        flex-direction: column;
+        text-align: center;
+        gap: 15px;
+    }
+
+    .stats-cards {
+        grid-template-columns: 1fr;
+        /* 1 Cartão por linha no celular */
+    }
+
+    .barra-busca {
+        flex-direction: column;
+        border-radius: 8px;
+        /* Remove o redondo extremo no mobile pra ficar mais limpo */
+        padding: 10px;
+    }
+
+    .barra-busca input {
+        width: 100%;
+        text-align: center;
+        margin-bottom: 5px;
+    }
+
+    .barra-busca button,
+    .btn-novo {
+        width: 100%;
+    }
+
+    /* Outros grids residuais */
+    .financeiro-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .perfil-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 10px;
+    }
+}

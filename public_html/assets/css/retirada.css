@@ -1,0 +1,375 @@
+/* ARQUIVO: assets/css/retirada.css */
+
+.conteudo-principal {
+    margin-left: 210px;
+    width: calc(100% - 210px);
+    padding: 30px;
+    box-sizing: border-box;
+    min-height: 100vh;
+    background-color: #f8fafc;
+}
+
+.painel-lista-ativa {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    margin-bottom: 25px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.header-lista-mobile {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+    border-radius: 12px 12px 0 0;
+}
+
+.header-lista-mobile h3 {
+    font-size: 16px;
+    color: #1e293b;
+    font-weight: 800;
+}
+
+.corpo-lista-mobile {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.item-agrupado {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    border-bottom: 1px solid #f1f5f9;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+.footer-lista-mobile {
+    padding: 15px;
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
+    border-radius: 0 0 12px 12px;
+}
+
+/* BOTÕES GLOBAIS */
+.btn-lista-add {
+    background: #6366f1;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 800;
+    font-size: 11px;
+    transition: 0.2s;
+}
+
+.btn-lista-add:hover {
+    background: #4f46e5;
+}
+
+.btn-remover-lista {
+    background: #fee2e2;
+    color: #ef4444;
+    border: 1px solid #fecaca;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-weight: bold;
+}
+
+.btn-ok-direto {
+    background: #1e293b;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 800;
+    font-size: 11px;
+}
+
+.btn-finalizar {
+    background: #22c55e;
+    color: white;
+    padding: 12px;
+    width: 100%;
+    border: none;
+    border-radius: 8px;
+    font-weight: 900;
+    cursor: pointer;
+    text-transform: uppercase;
+}
+
+.btn-limpar-lista {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 6px;
+    font-weight: 800;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.btn-retirada-direta {
+    background: #10b981; /* VOLTOU: Verde original */
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 6px;
+    font-weight: 800;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.btn-retirada-direta:hover {
+    background: #059669; /* Efeito de hover um pouco mais escuro */
+}
+
+.btn-baixar-cliente {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 5px;
+    font-weight: 800;
+    cursor: pointer;
+    font-size: 10px;
+}
+
+.btn-tirar-item {
+    background: none;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.btn-finalizar-tudo {
+    background: #22c55e;
+    color: white;
+    padding: 15px;
+    width: 100%;
+    border: none;
+    border-radius: 8px;
+    font-weight: 900;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+/* ÁREA DE BUSCA */
+.area-busca-retirada {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 25px;
+}
+
+.form-busca-retirada {
+    display: flex;
+    align-items: center;
+    background: #ffffff;
+    padding: 8px;
+    border-radius: 50px;
+    border: 1px solid #cbd5e1;
+    width: 100%;
+    max-width: 800px;
+}
+
+.input-data {
+    border: none;
+    padding: 10px;
+    background: #f1f5f9;
+    border-radius: 50px;
+    font-weight: 700;
+}
+
+.input-busca-retirada {
+    border: none;
+    padding: 10px 20px;
+    flex: 1;
+    font-size: 14px;
+    outline: none;
+}
+
+.form-busca-retirada button {
+    background: #1e293b;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 50px;
+    cursor: pointer;
+    font-weight: 800;
+}
+
+/* TABELA */
+.painel-tabela-full {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.tabela-retirada-full {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 8px;
+}
+
+.tabela-retirada-full th {
+    color: #64748b;
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 800;
+    padding: 10px;
+    text-align: left;
+}
+
+.tabela-retirada-full tr {
+    background: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tabela-retirada-full td {
+    padding: 15px;
+    font-size: 13px;
+    border-top: 1px solid #f1f5f9;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+/* GRUPO DE CLIENTE NA LISTA */
+.grupo-cliente-lista {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    padding: 10px;
+}
+
+.header-cliente-lista {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #cbd5e1;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+}
+
+/* BOTÃO TELA INTEIRA E AÇÃO */
+.btn-tela-cheia {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-weight: 800;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.painel-lista-ativa.tela-cheia {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 999999 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+}
+
+.painel-lista-ativa.tela-cheia .corpo-lista-mobile {
+    max-height: none !important;
+    flex: 1 !important;
+}
+
+/* RESPONSIVIDADE CELULAR */
+@media (max-width: 768px) {
+    .conteudo-principal {
+        margin-left: 0;
+        width: 100%;
+        padding: 15px;
+        padding-top: 70px;
+    }
+
+    .form-busca-retirada {
+        flex-direction: column;
+        border-radius: 15px;
+    }
+
+    .input-data,
+    .input-busca-retirada,
+    .form-busca-retirada button {
+        width: 100%;
+        margin: 5px 0;
+    }
+}
+/* Botão Amarelo de Impressão no PC */
+.btn-imprimir {
+    background: #f59e0b;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 6px;
+    font-weight: 800;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+/* =========================================
+   REGRAS DE OURO PARA IMPRESSÃO (P&B)
+   ========================================= */
+@media print {
+    /* 1. Esconde TUDO o que não for a lista */
+    body * { visibility: hidden; background: white !important; }
+    
+    /* 2. Mostra apenas o painel da lista e força o topo da página */
+    #listaSeparacao, #listaSeparacao * { 
+        visibility: visible; 
+        color: black !important; /* Força texto preto */
+        box-shadow: none !important;
+        border: none !important;
+    }
+    
+    #listaSeparacao {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+    }
+
+    /* 3. Estiliza os itens para ficarem bem legíveis no papel */
+    .grupo-cliente-lista {
+        border: 1px solid #000 !important;
+        margin-bottom: 20px !important;
+        page-break-inside: avoid; /* Não deixa um cliente cortar no meio da folha */
+    }
+
+    .header-cliente-lista {
+        background: #eee !important; /* Cinza clarinho só pra destacar o nome */
+        border-bottom: 2px solid #000 !important;
+    }
+
+    .item-agrupado {
+        border-bottom: 1px solid #ccc !important;
+        font-size: 16px !important; /* Aumenta a letra no papel */
+    }
+
+    /* 4. Esconde botões de ação (eles não servem no papel) */
+    .btn-tela-cheia, .btn-imprimir, .btn-limpar-lista, 
+    .btn-baixar-cliente, .btn-tirar-item, .footer-lista-mobile { 
+        display: none !important; 
+    }
+
+    /* 5. Garante que a lista não tenha barra de rolagem no papel */
+    .corpo-lista-mobile { 
+        max-height: none !important; 
+        overflow: visible !important; 
+    }
+}

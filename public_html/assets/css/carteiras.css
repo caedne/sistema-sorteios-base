@@ -1,0 +1,446 @@
+/* ARQUIVO: assets/css/carteiras.css (CORRIGIDO) */
+
+.conteudo-principal {
+    margin-left: 210px;
+    width: calc(100% - 210px);
+    padding: 20px 30px;
+    box-sizing: border-box;
+    min-height: 100vh;
+    /* Removido o overflow-x que estava cortando o celular */
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Header */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.header h1 {
+    font-size: 24px;
+    margin: 0;
+    color: #1e293b;
+    font-weight: 800;
+}
+
+/* Barra de Busca */
+.barra-busca {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    align-items: center;
+    background: white;
+    padding: 6px;
+    border-radius: 50px;
+    border: 1px solid #cbd5e1;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.barra-busca input {
+    flex: 1;
+    padding: 6px 15px;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    outline: none;
+}
+
+.barra-busca button {
+    padding: 8px 20px;
+    border-radius: 50px;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.btn-buscar {
+    background: #0284c7;
+    color: white;
+}
+
+.btn-limpar {
+    background: #64748b;
+    color: white;
+}
+
+.btn-novo {
+    background-color: #22c55e;
+    color: white;
+    padding: 8px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 4px 6px -1px rgba(34, 197, 94, 0.4);
+    transition: all 0.2s;
+    font-size: 13px;
+}
+
+.btn-novo:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 8px -1px rgba(34, 197, 94, 0.5);
+}
+
+/* Tabela Compacta */
+.tabela {
+    background: white;
+    border-radius: 8px;
+    overflow-x: auto;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.tabela table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 900px;
+}
+
+.tabela th {
+    background: #1e293b;
+    color: #facc15;
+    padding: 10px 15px;
+    text-align: left;
+    font-weight: 900;
+    font-size: 10px;
+    text-transform: uppercase;
+}
+
+.tabela td {
+    padding: 4px 15px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    font-size: 12px;
+    height: 35px;
+    vertical-align: middle;
+}
+
+.tabela tr:hover {
+    background: #f8fafc;
+}
+
+/* Badges e Textos Menores */
+.bloco-dinheiro {
+    font-size: 13px;
+    font-weight: 900;
+    color: #0284c7;
+    margin-bottom: 2px;
+}
+
+.bloco-fiado {
+    font-size: 13px;
+    font-weight: 900;
+    color: #f59e0b;
+    margin-bottom: 2px;
+}
+
+.texto-verde {
+    font-size: 10px;
+    color: #16a34a;
+    line-height: 1.2;
+}
+
+.texto-vermelho {
+    font-size: 10px;
+    color: #ef4444;
+    line-height: 1.2;
+}
+
+.texto-divida {
+    font-size: 10px;
+    color: #ef4444;
+    font-weight: bold;
+    line-height: 1.2;
+}
+
+.texto-limite {
+    font-size: 10px;
+    color: #64748b;
+    line-height: 1.2;
+}
+
+.texto-vazio {
+    color: #cbd5e1;
+    font-size: 11px;
+}
+
+.badge-poder-total {
+    color: #22c55e;
+    font-size: 13px;
+    font-weight: 900;
+    background: #dcfce7;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+/* Botões de Ação */
+.btn-acao {
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: none;
+    font-weight: 800;
+    cursor: pointer;
+    font-size: 10px;
+    margin-right: 3px;
+    color: white;
+    transition: 0.2s;
+    text-transform: uppercase;
+}
+
+.btn-acao:hover {
+    opacity: 0.8;
+}
+
+.btn-editar {
+    background: #22c55e;
+}
+
+.btn-historico {
+    background: #6366f1;
+}
+
+/* Paginação */
+.paginacao {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+    margin-top: 15px;
+    padding-bottom: 20px;
+}
+
+.btn-paginacao {
+    padding: 6px 12px;
+    background: #e2e8f0;
+    color: #1e293b;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 12px;
+    transition: 0.2s;
+}
+
+.btn-paginacao.ativo {
+    background: #0284c7;
+    color: white;
+}
+
+.btn-paginacao:hover:not(.ativo) {
+    background: #cbd5e1;
+}
+
+/* Modal */
+.modal-overlay {
+    display: none;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(15, 23, 42, 0.8) !important;
+    z-index: 999999 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    backdrop-filter: blur(4px);
+}
+
+.modal-overlay[style*="display: flex"] {
+    display: flex !important;
+}
+
+.modal-box {
+    background: white !important;
+    border-radius: 12px !important;
+    padding: 25px !important;
+    max-width: 450px !important;
+    width: 90% !important;
+    position: relative !important;
+    z-index: 1000000 !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1) !important;
+}
+
+.modal-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: #1e293b;
+    margin-bottom: 15px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-label {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 5px;
+    color: #475569;
+    font-size: 12px;
+}
+
+.form-input {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 13px;
+    box-sizing: border-box;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.btn-modal-salvar {
+    flex: 1;
+    padding: 10px;
+    background: #22c55e;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.btn-modal-cancelar {
+    flex: 1;
+    padding: 10px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* Helpers */
+.text-muted {
+    color: #64748b;
+}
+
+.text-muted-sm {
+    color: #64748b;
+    font-size: 11px;
+}
+
+.text-helper {
+    color: #94a3b8;
+    font-size: 10px;
+    margin-top: 4px;
+    display: block;
+}
+
+.vazio {
+    text-align: center;
+    padding: 40px;
+    color: #94a3b8;
+}
+
+.info-box {
+    background: #f1f5f9;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.info-box-title {
+    color: #1e293b;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.info-box-highlight {
+    color: #0284c7;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+/* Fix Modal Saldo */
+.modal-saldo-fix {
+    display: flex !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 99999999 !important;
+    background: rgba(15, 23, 42, 0.8) !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* Busca Modal */
+.resultados-busca {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+.resultado-item {
+    padding: 10px;
+    border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+}
+
+.resultado-item:hover {
+    background: #f8fafc;
+}
+
+.resultado-nome {
+    font-weight: 700;
+    color: #1e293b;
+    font-size: 12px;
+}
+
+.resultado-telefone {
+    font-size: 11px;
+    color: #64748b;
+}
+
+.btn-selecionar {
+    padding: 4px 8px;
+    background: #0284c7;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 10px;
+    margin-top: 5px;
+}
+
+/* Voltei a responsividade exatamente como estava antes */
+@media (max-width: 768px) {
+    .conteudo-principal {
+        margin-left: 0;
+        width: 100%;
+        padding: 15px;
+        padding-top: 70px;
+    }
+
+    .header {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+
+    .barra-busca {
+        flex-direction: column;
+    }
+
+    .barra-busca input,
+    .barra-busca button {
+        width: 100%;
+    }
+}
