@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  evolution-api:
+    image: atendai/evolution-api:v2.2.1
+    container_name: evolution_api
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_URL=http://localhost:8080
+      # Chave de segurança para o seu sistema conversar com a API
+      - AUTHENTICATION_API_KEY=chave_mestra_da_evolution
+      
+      # Configurações de Banco e Cache
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://postgres:dkingadmin@postgres:5432/evolution?schema=public
+      - REDIS_URI=redis://redis:6379
+      
+      # Webhook (A ponte para o seu painel Node.js)
+      - WEBHOOK_GLOBAL_URL=http://host.docker.internal:3000/webhook/evolution
+      - WEBHOOK_GLOBAL_ENABLED=true
+      - WEBHOOK_GLOBAL_EVENTS=APPLICATION_STARTUP,QRCODE_UPDATED,MESSAGES_UPSERT,SEND_MESSAGE,CONNECTION_UPDATE
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:15
+    container_name: evolution_postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=dkingadmin
+      - POSTGRES_DB=evolution
+    ports:
+      - "5432:5432"
+    volumes:
+      - evolution_db:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: evolution_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - evolution_cache:/data
+
+volumes:
+  evolution_db:
+  evolution_cache:

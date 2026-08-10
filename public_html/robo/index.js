@@ -1393,10 +1393,16 @@ async function connectToWhatsApp() {
                 await sock.sendMessage(groupJid, { text: texto, mentions: participants });
             }
         }
-
-        if (category && body === '#config') {
+        if (body === '#config' || body === 'config') {
             await sock.sendMessage(groupJid, {
-                text: `🤖 *MENU \n✅ *#01 #02...* - Reservar\n⚡ *#fechar* - Comprar Restantes\n💳 Pagamento automático Pix\n⚙️ *#config* - Ajuda`
+                text: "🤖 *MENU DE COMANDOS - MERCADO SILVEIRA*\n\n" +
+                    "✅ *#número* (Ex: #01, #05) - Reservar números\n" +
+                    "⚡ *#fechar* - Comprar todos os números restantes\n" +
+                    "💰 *#saldo* - Ver saldo e limite de crédito\n" +
+                    "📜 *#historico* - Ver histórico de transações\n" +
+                    "🎁 *#retiradas* - Ver prêmios pendentes para retirar\n" +
+                    "💳 *#recargaVALOR* - Recarregar saldo via Pix (Ex: #recarga10)\n" +
+                    "⚙️ *#config* - Exibir esta ajuda"
             });
         }
     });
@@ -1603,6 +1609,7 @@ async function connectToWhatsApp() {
 }
 
 async function criarPagamentoMercadoPago(valorTotal, descricao, telefoneBruto, numerosReservados) {
+    // BLINDAGEM: Limpa o número (Remove @, : e letras) para o Mercado Pago não dar erro no e-mail
     const numLimpo = telefoneBruto.split('@')[0].split(':')[0].replace(/\D/g, '');
     const emailPayer = `${numLimpo}@whatsapp.com`;
 
@@ -1618,7 +1625,7 @@ async function criarPagamentoMercadoPago(valorTotal, descricao, telefoneBruto, n
             email: emailPayer,
             first_name: 'Cliente' // Sem CPF, apenas um primeiro nome genérico
         },
-        notification_url: `${process.env.APP_URL}/webhook_mp.php`,
+        notification_url: 'https://mercadosilveira.dkingsorteios.com.br/webhook_mp.php',
         external_reference: `${numLimpo}|${numerosReservados.join(',')}`,
         metadata: {
             telefone: numLimpo,
@@ -1637,6 +1644,17 @@ async function criarPagamentoMercadoPago(valorTotal, descricao, telefoneBruto, n
 
     return response.data;
 }
+const idempotencyKey = `${numLimpo}-${Date.now()}-${numerosReservados.join('')}`;
+const response = await axios.post(MERCADOPAGO_API_URL, paymentData, {
+    headers: {
+        'Authorization': `Bearer ${MERCADOPAGO_ACCESS_TOKEN}`,
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': idempotencyKey
+    }
+});
+
+return response.data;
+
 
 async function enviarDadosPagamento(telefoneBruto, pagamentoInfo, rifa, numerosReservados, valorTotal, nomeCliente) {
     const pixCode = pagamentoInfo.point_of_interaction?.transaction_data?.qr_code;
