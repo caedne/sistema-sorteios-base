@@ -138,9 +138,9 @@ while ($row = $resLista->fetch_assoc()) {
 <head>
     <meta charset="UTF-8">
     <title>Retirada - Mercado Silveira</title>
-    <link rel="stylesheet" href="../assets/css/global.css">
-    <link rel="stylesheet" href="../assets/css/sidebar.css">
-    <link rel="stylesheet" href="../assets/css/retirada.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="assets/css/global.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="assets/css/sidebar.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="assets/css/retirada.css?v=<?php echo time(); ?>">
     <style>
         .paginacao { display: flex; justify-content: center; gap: 8px; margin-top: 10px; padding-bottom: 20px; }
         .btn-paginacao { padding: 8px 14px; background: #f1f5f9; color: #1e293b; border-radius: 6px; text-decoration: none; font-weight: 800; font-size: 13px; border: 1px solid #cbd5e1; transition: 0.2s; }
@@ -163,9 +163,8 @@ while ($row = $resLista->fetch_assoc()) {
 </head>
 
 <body>
-    <?php include '../componentes/sidebar.php'; ?>
+    <?php include 'componentes/sidebar.php'; ?>
     <div class="conteudo-principal">
-        <?php include '../componentes/submenu_categorias.php'; ?>
 
         <div id="listaSeparacao" class="painel-lista-ativa <?php echo ($total_itens_carrinho == 0) ? 'vazia' : ''; ?>">
             <div class="header-lista-mobile" style="flex-wrap: wrap; gap: 10px;">

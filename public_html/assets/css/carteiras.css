@@ -9,9 +9,12 @@
     /* Removido o overflow-x que estava cortando o celular */
 }
 
-.container {
-    max-width: 1400px;
-    margin: 0 auto;
+.container-carteiras {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
 /* Header */

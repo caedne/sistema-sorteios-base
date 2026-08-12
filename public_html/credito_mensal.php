@@ -11,7 +11,6 @@ if (!isset($_SESSION['admin_logado']) || $_SESSION['admin_logado'] !== true) {
     exit;
 }
 include 'db.php';
-session_start();
 
 $sql = "SELECT * FROM carteiras WHERE credito_limite > 0 
         ORDER BY 
@@ -29,18 +28,17 @@ $result = $conn->query($sql);
 
 <head>
     <meta charset="UTF-8">
-    <title>Crédito Mensal | D'KING</title>
-    <link rel="stylesheet" href="../assets/css/global.css">
-    <link rel="stylesheet" href="../assets/css/sidebar.css">
-    <link rel="stylesheet" href="../assets/css/credito_mensal.css?v=<?php echo time(); ?>">
+    <title>Crédito Mensal</title>
+    <link rel="stylesheet" href="assets/css/global.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="assets/css/sidebar.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="assets/css/credito_mensal.css?v=<?php echo time(); ?>">
 </head>
 
 <body>
     <div class="layout-sistema">
-        <aside class="sidebar"><?php include '../componentes/sidebar.php'; ?></aside>
-
+        <aside class="sidebar"><?php include 'componentes/sidebar.php'; ?></aside>
         <main class="conteudo-principal">
-            <div class="container">
+            <div class="container-credito">
 
                 <div class="header">
                     <h1>💳 Crédito Mensal</h1>
@@ -77,9 +75,11 @@ $result = $conn->query($sql);
                                         </td>
 
                                         <td class="valor-limite">R$
-                                            <?php echo number_format($row['credito_limite'], 2, ',', '.'); ?></td>
+                                            <?php echo number_format($row['credito_limite'], 2, ',', '.'); ?>
+                                        </td>
                                         <td class="valor-usado">R$
-                                            <?php echo number_format($row['credito_usado'], 2, ',', '.'); ?></td>
+                                            <?php echo number_format($row['credito_usado'], 2, ',', '.'); ?>
+                                        </td>
                                         <td class="valor-disponivel">R$ <?php echo number_format($disponivel, 2, ',', '.'); ?>
                                         </td>
                                         <td><strong>Dia <?php echo $row['dia_vencimento'] ?? 15; ?></strong></td>

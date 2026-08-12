@@ -11,7 +11,6 @@ if (!isset($_SESSION['admin_logado']) || $_SESSION['admin_logado'] !== true) {
     exit;
 }
 include 'db.php';
-session_start();
 
 $busca = $_GET['busca'] ?? '';
 $mes_atual = date('m');
@@ -68,17 +67,16 @@ function formatarTelefone($telefone)
 <head>
     <meta charset="UTF-8">
     <title>Carteiras | D'KING</title>
-    <link rel="stylesheet" href="../assets/css/global.css">
-    <link rel="stylesheet" href="../assets/css/sidebar.css">
-    <link rel="stylesheet" href="../assets/css/carteiras.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="assets/css/global.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="assets/css/sidebar.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="assets/css/carteiras.css?v=<?php echo time(); ?>">
 </head>
 
 <body>
     <div class="layout-sistema">
-        <aside class="sidebar"><?php include '../componentes/sidebar.php'; ?></aside>
-
+        <aside class="sidebar"><?php include 'componentes/sidebar.php'; ?></aside>
         <main class="conteudo-principal">
-            <div class="container">
+            <div class="container-carteiras">
                 <div class="header">
                     <h1>💳 Carteiras </h1>
                     <button class="btn-novo" onclick="abrirModalNovo()">➕ Nova Carteira</button>
@@ -154,7 +152,7 @@ function formatarTelefone($telefone)
                                             <button class="btn-acao btn-historico"
                                                 onclick="location.href='historico_carteira.php?cliente_id=<?php echo $row['cliente_id']; ?>'">📜
                                                 Histórico</button>
-                                            <button class="btn-acao" style="background:#ef4444; color:white; margin-left:4px;"
+                                            <button class="btn-acao btn-excluir"
                                                 onclick="zerarSaldoCarteira(<?php echo $row['cliente_id']; ?>, '<?php echo addslashes($row['nome_fixo']); ?>')"
                                                 title="Zerar Apenas o Saldo da Carteira">🗑️ Zerar Saldo</button>
                                         </td>

@@ -123,19 +123,17 @@ if ($res) {
 <head>
     <meta charset="UTF-8">
     <title>Histórico - D'King</title>
-    <link rel="stylesheet" href="../assets/css/global.css?v=<?php echo time(); ?>">
-    <link rel="stylesheet" href="../assets/css/sidebar.css?v=<?php echo time(); ?>">
-    <link rel="stylesheet" href="../assets/css/submenu.css?v=<?php echo time(); ?>">
-    <link rel="stylesheet" href="../assets/css/historico.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="assets/css/global.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="assets/css/sidebar.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="assets/css/historico.css?v=<?php echo time(); ?>">
 </head>
 <body>
 
-<?php include '../componentes/sidebar.php'; ?>
+<?php include 'componentes/sidebar.php'; ?>
 
 <div id="tooltip-master"></div>
 
 <div class="conteudo-principal">
-    <?php include '../componentes/submenu_categorias.php'; ?>
 
     <div class="area-busca-historico">
         <form method="GET" class="form-busca-historico">

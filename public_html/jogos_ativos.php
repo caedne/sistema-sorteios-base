@@ -267,17 +267,17 @@ $qtd = $sorteio['qtd_numeros'] ?? 25;
 
                                 <button onclick="chamarTodos(<?php echo $sorteio['id']; ?>)"
                                     class="btn-acao-custom btn-chamar">
-                                    📢 CHAMAR
+                                    📢 CHAMAR TODOS NO GRUPO
                                 </button>
 
                                 <button onclick="acionarRobo(<?php echo $sorteio['id']; ?>, 'reenviar')"
                                     class="btn-acao-custom btn-reenviar">
-                                    🔄 LISTA
+                                    🔄 ENVIAR LISTA
                                 </button>
 
                                 <button onclick="acionarRobo(<?php echo $sorteio['id']; ?>, 'alerta')"
                                     class="btn-acao-custom btn-alerta">
-                                    ⚠️ FALTAM
+                                    ⚠️ FALTAM X NÚMEROS
                                 </button>
 
                                 <?php if ($total_pagos >= $qtd): ?>
