@@ -23,10 +23,10 @@ const GRUPOS = {
 };
 
 const pool = mysql.createPool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASS,
-    database: process.env.DB_NAME,
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASS || 'dkingadmin',
+    database: process.env.DB_NAME || 'sistema_cliente_1', // Nome do banco isolado do cliente
     charset: 'utf8mb4',
     waitForConnections: true,
     connectionLimit: 10,
@@ -1965,109 +1965,7 @@ setInterval(() => {
         });
     });
 }, 12 * 60 * 60 * 1000); // Executa a verificação a cada 12 horas
-// RADAR DE VÍDEOS PRONTOS (CINEGRAFISTA TERMINOU)
-// ==========================================
-setInterval(async () => {
-    try {
-        const [prontos] = await pool.execute("SELECT * FROM sorteios WHERE status = 'video_pronto'");
 
-        for (const rifa of prontos) {
-            // Trava imediatamente para não enviar mensagens duplicadas
-            await pool.execute("UPDATE sorteios SET status = 'finalizando' WHERE id = ?", [rifa.id]);
-
-            const gid = Object.keys(GRUPOS).find(k => GRUPOS[k] === rifa.categoria);
-            if (!gid) continue;
-
-            console.log(`🎬 Vídeo do Sorteio ${rifa.id} pronto! Enviando resultados...`);
-
-            // 1. Busca ganhadores unindo com a tabela vendas para pegar o TELEFONE
-            const [ganhadores] = await pool.execute(`
-                SELECT gp.*, v.telefone 
-                FROM ganhadores_premios gp
-                JOIN vendas v ON gp.sorteio_id = v.sorteio_id AND gp.numero_sorteado = v.numero_escolhido
-                WHERE gp.sorteio_id = ?
-                ORDER BY gp.id ASC
-            `, [rifa.id]);
-
-            // 2. Marca as vendas originais como 'ganhador'
-            for (const g of ganhadores) {
-                await pool.execute("UPDATE vendas SET status_venda = 'ganhador' WHERE sorteio_id = ? AND numero_escolhido = ?", [rifa.id, g.numero_sorteado]);
-            }
-
-            // 3. Monta a mensagem de resultado
-            const emojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-            const numVisual = String(rifa.numero_visual || rifa.id).padStart(2, '0');
-            let msgRes = `🏆 *RESULTADO OFICIAL - SORTEIO AUTOMÁTICO*\n\n🎰 *${rifa.titulo} #${numVisual}*\n\n`;
-            ganhadores.forEach((g, index) => {
-                msgRes += `${emojis[index] || `${index + 1}º`} *${g.premio}*\n👤 ${g.nome_cliente} — *Nº ${g.numero_sorteado}*\n\n`;
-            });
-            msgRes += `_Retire seu prêmio em 48h no ${process.env.NOME_CLIENTE}_`;
-
-            // 4. Caminho da pasta Uploads (Dinâmico)
-            const dirUploads = path.join(__dirname, '../assets/uploads');
-            const videoPath = path.join(dirUploads, `sorteio_${rifa.id}.mp4`);
-            const imagePath = path.join(dirUploads, `sorteio_${rifa.id}.jpg`);
-
-            // 5. Envia o Vídeo primeiro e depois o Print com os ganhadores
-            if (fs.existsSync(videoPath)) {
-                await global.sock.sendMessage(gid, { video: fs.readFileSync(videoPath), caption: "🎬 *Sorteio Realizado!* A roleta girou:" });
-                const pausaHumanaVideo = Math.floor(Math.random() * 4000) + 6000;
-                await new Promise(r => setTimeout(r, pausaHumanaVideo));
-            }
-            if (fs.existsSync(imagePath)) {
-                await global.sock.sendMessage(gid, { image: fs.readFileSync(imagePath), caption: msgRes });
-            } else {
-                await global.sock.sendMessage(gid, { text: msgRes });
-            }
-
-            // 6. Avisa no Privado dos Ganhadores
-            for (const [index, g] of ganhadores.entries()) {
-                if (g.telefone) {
-                    try {
-                        let userJid = g.telefone.toString().replace(/\D/g, '');
-                        let isLid = userJid.length >= 14;
-                        userJid = isLid ? `${userJid}@lid` : `${userJid}@s.whatsapp.net`;
-
-                        const agora = new Date();
-                        const dataFormatada = agora.toLocaleDateString('pt-BR');
-                        const horaFormatada = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-                        const msgPrivada = `🎉 *PARABÉNS! VOCÊ GANHOU!*\n\n🎰 *Sorteio:* ${rifa.titulo}\n🏅 *Colocação:* ${emojis[index] || `${index + 1}º`} Lugar\n🎁 *Prêmio:* ${g.premio}\n🎟️ *Número:* ${g.numero_sorteado}\n📅 *Data:* ${dataFormatada} às ${horaFormatada}\n\n⚠️ *Você tem 48hrs para retirar no ${process.env.NOME_CLIENTE}!*`;
-
-                        await global.sock.sendMessage(userJid, { text: msgPrivada });
-                        await new Promise(r => setTimeout(r, Math.floor(Math.random() * 3000) + 4000));
-                    } catch (e) { console.error(`Erro ao avisar ganhador:`, e.message); }
-                }
-            }
-
-            // 7. Sorteio 100% finalizado!
-            await pool.execute("UPDATE sorteios SET status = 'finalizado' WHERE id = ?", [rifa.id]);
-            console.log(`✅ Sorteio ${rifa.id} totalmente finalizado!`);
-
-            // 8. PUXAR O PRÓXIMO DA FILA (PLAYLIST)
-            try {
-                const [fila] = await pool.execute("SELECT * FROM sorteios WHERE categoria = ? AND status = 'fila' ORDER BY ordem_fila ASC LIMIT 1", [rifa.categoria]);
-
-                if (fila.length > 0) {
-                    const proximo = fila[0];
-                    await pool.execute("UPDATE sorteios SET status = 'ativo', ordem_fila = 0 WHERE id = ?", [proximo.id]);
-
-                    const numFormatado = String(proximo.numero_visual || proximo.id).padStart(2, '0');
-                    const msgNovo = `🚨 *Os Sorteios Não Param...* 🚨\n\nO sorteio *${proximo.titulo} #${numFormatado}* acabou de entrar na mesa!\n\n👉 Envie *#numero* ou *#fechar* para garantir sua vaga antes que acabe!`;
-
-                    await global.sock.sendMessage(gid, { text: msgNovo });
-                    console.log(`🔄 PLAYLIST: Sorteio ${proximo.id} (Fila) ativado automaticamente na categoria ${rifa.categoria}!`);
-                } else {
-                    console.log(`⏸️ Fila vazia para a categoria ${rifa.categoria}. Aguardando novos sorteios no painel.`);
-                }
-            } catch (errFila) {
-                console.error("Erro ao puxar da fila:", errFila);
-            }
-        }
-    } catch (error) {
-        console.error("Erro no Radar de Vídeos:", error);
-    }
-}, 5000);
 
 app.listen(WEBHOOK_PORT, () => console.log(`🌐 API Rodando na porta ${WEBHOOK_PORT}`));
 connectToWhatsApp();

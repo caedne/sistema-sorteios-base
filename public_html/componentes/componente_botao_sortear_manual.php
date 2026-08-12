@@ -1,5 +1,6 @@
 <?php
 // Só mostra botão se TODOS estiverem pagos
+$total_vendas = $total_vendas ?? count($vendas_map);
 if ($sorteio && $total_vendas >= $qtd):
     $totalPagos = 0;
     foreach ($vendas_map as $dados) {
@@ -8,9 +9,7 @@ if ($sorteio && $total_vendas >= $qtd):
         }
     }
     
-    // Só mostra se TODOS pagos
     if ($totalPagos >= $qtd):
-        // Busca todos os números pagos
         $numerosPagos = [];
         foreach ($vendas_map as $num => $dados) {
             if ($dados['status'] === 'pago') {
@@ -22,10 +21,9 @@ if ($sorteio && $total_vendas >= $qtd):
             }
         }
         
-        // Codifica em Base64 para evitar problemas com caracteres especiais
         $dadosBase64 = base64_encode(json_encode([
             'sorteioId' => $sorteio['id'],
-            'categoria' => $tipo,
+            'categoria' => 'geral',
             'premios' => $sorteio['premios'],
             'numeros' => $numerosPagos
         ]));
@@ -57,5 +55,5 @@ if ($sorteio && $total_vendas >= $qtd):
     </script>
 <?php 
     endif;
-endif; 
+endif;
 ?>

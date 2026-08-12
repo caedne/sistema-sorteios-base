@@ -13,7 +13,7 @@ if (!isset($_SESSION['admin_logado']) || $_SESSION['admin_logado'] !== true) {
 include 'db.php';
 
 // ==========================================
-// AÇÕES INDIVIDUAIS DO QUADRADO (NOVO)
+// AÇÕES INDIVIDUAIS DO QUADRADO
 // ==========================================
 if (isset($_POST['acao_individual'])) {
     $acao = $_POST['acao_individual'];
@@ -23,7 +23,6 @@ if (isset($_POST['acao_individual'])) {
 
     header('Content-Type: application/json');
 
-    // Função interna para disparar a API do Node.js
     function enviarMsgBot($tel, $msg)
     {
         $ch = curl_init('http://localhost:3000/api/enviar-mensagem-simples');
@@ -49,7 +48,6 @@ if (isset($_POST['acao_individual'])) {
     }
 
     if ($acao === 'cancelar_numero') {
-        // 1. Busca os detalhes da venda para saber se estava pago e quem era o dono
         $v_q = $conn->query("SELECT status_venda, cliente_id, id_whatsapp FROM vendas WHERE sorteio_id = $sorteio_id AND numero_escolhido = $numero");
         if ($v_q->num_rows > 0) {
             $venda = $v_q->fetch_assoc();
@@ -61,7 +59,6 @@ if (isset($_POST['acao_individual'])) {
             if ($venda['status_venda'] === 'pago') {
                 $cId = $venda['cliente_id'];
 
-                // Se a venda não tiver o cliente_id gravado, busca na agenda pelo id_whatsapp
                 if (!$cId && $venda['id_whatsapp']) {
                     $c_q = $conn->query("SELECT id FROM agenda_clientes WHERE id_whatsapp = '{$venda['id_whatsapp']}'");
                     if ($c_q->num_rows > 0)
@@ -69,26 +66,22 @@ if (isset($_POST['acao_individual'])) {
                 }
 
                 if ($cId) {
-                    // 2. ADICIONA O DINHEIRO DE VERDADE NA CARTEIRA DO CARA (O que faltava!)
                     $cart_q = $conn->query("SELECT saldo FROM carteiras WHERE cliente_id = $cId");
                     if ($cart_q->num_rows > 0) {
                         $conn->query("UPDATE carteiras SET saldo = saldo + $valor WHERE cliente_id = $cId");
                     } else {
-                        // Se por acaso ele não tiver uma linha na tabela carteiras, cria uma ativa com o saldo do estorno
                         $conn->query("INSERT INTO carteiras (cliente_id, saldo, credito_limite, credito_usado, status, data_criacao) VALUES ($cId, $valor, 0, 0, 'ativo', NOW())");
                     }
 
-                    // 3. Grava no histórico oficial (Raio-X do cliente)
                     $desc = "Estorno (Número Individual): {$s_dados['titulo']} #{$s_dados['numero_visual']} - Nº " . str_pad($numero, 2, '0', STR_PAD_LEFT);
                     $conn->query("INSERT INTO transacoes_carteira (cliente_id, tipo, valor, descricao, data_transacao) VALUES ($cId, 'estorno', $valor, '$desc', NOW())");
                 }
 
-                $msg = "⚠️ *RESERVA CANCELADA COM ESTORNO*\n\nO número *$numero* da rifa *{$s_dados['titulo']}* foi cancelado pelo administrador.\n\n✅ Como você já havia pago, o valor de *R$ " . number_format($valor, 2, ',', '.') . "* foi devolvido para o seu *Saldo na Carteira* do sistema! Use o comando *#saldo* para conferir.";
+                $msg = "⚠️ *RESERVA CANCELADA COM ESTORNO*\n\nO número *$numero* da rifa *{$s_dados['titulo']}* foi cancelado pelo administrador.\n\n✅ Como você já havia pago, o valor de *R$ " . number_format($valor, 2, ',', '.') . "* foi devolvido para o seu *Saldo na Carteira*!";
             } else {
-                $msg = "⚠️ *RESERVA CANCELADA*\n\nO número *$numero* da rifa *{$s_dados['titulo']}* foi cancelado por falta de pagamento ou pelo administrador.";
+                $msg = "⚠️ *RESERVA CANCELADA*\n\nO número *$numero* da rifa *{$s_dados['titulo']}* foi cancelado.";
             }
 
-            // 4. Deleta APENAS a linha desse número para liberar o quadrado no painel
             $conn->query("DELETE FROM vendas WHERE sorteio_id = $sorteio_id AND numero_escolhido = $numero");
             enviarMsgBot($telefone, $msg);
         }
@@ -98,12 +91,11 @@ if (isset($_POST['acao_individual'])) {
 }
 
 // ==========================================
-// COMUNICAÇÃO DIRETA COM AS NOVAS ROTAS DO ROBÔ
+// COMUNICAÇÃO COM O ROBÔ
 // ==========================================
 if (isset($_POST['acao_robo'])) {
     $acao = $_POST['acao_robo'];
     $id = intval($_POST['sorteio_id']);
-    $cat = $_POST['categoria'];
 
     $url = "http://localhost:3000/api/reenviar-lista";
     if ($acao === 'alerta')
@@ -113,7 +105,7 @@ if (isset($_POST['acao_robo'])) {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['sorteio_id' => $id, 'categoria' => $cat]));
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['sorteio_id' => $id]));
     $res = curl_exec($ch);
     curl_close($ch);
 
@@ -121,39 +113,31 @@ if (isset($_POST['acao_robo'])) {
     echo $res;
     exit;
 }
-// 0. Lógica de Cancelamento com Trava e Aviso
+
+// Lógica de Cancelamento
 if (isset($_POST['acao_cancelar']) && isset($_POST['id_cancelar'])) {
     $id = intval($_POST['id_cancelar']);
-    $cat_atual = isset($_GET['cat']) ? $_GET['cat'] : 'carnes';
 
     $conn->query("UPDATE sorteios SET status = 'cancelado' WHERE id = $id AND status NOT IN ('finalizado', 'finalizando', 'gravar_video', 'video_pronto')");
 
     if ($conn->affected_rows === 0) {
-        echo "<script>alert('⚠️ AÇÃO BLOQUEADA: Este sorteio já encerrou ou está rolando a roleta! A tela será atualizada.'); window.location.href = 'jogos_ativos.php?cat=" . $cat_atual . "';</script>";
+        echo "<script>alert('⚠️ AÇÃO BLOQUEADA: Este sorteio já encerrou ou está rolando a roleta!'); window.location.href = 'jogos_ativos.php';</script>";
         exit;
     }
 
-    header("Location: jogos_ativos.php?cat=" . $cat_atual);
+    header("Location: jogos_ativos.php");
     exit;
 }
-// 1. Lógica para Marcar Tudo Pago Manualmente
+
+// Marcar Tudo Pago Manualmente
 if (isset($_POST['acao_tudo_pago']) && isset($_POST['id_tudo_pago'])) {
     $id = intval($_POST['id_tudo_pago']);
     $conn->query("UPDATE vendas SET status_venda = 'pago', data_reserva = NOW() WHERE sorteio_id = $id AND status_venda != 'pago'");
-    $cat_atual = isset($_GET['cat']) ? $_GET['cat'] : 'carnes';
-    header("Location: jogos_ativos.php?cat=" . $cat_atual);
+    header("Location: jogos_ativos.php");
     exit;
 }
 
-// 2. Detecção de Categoria
-$abaAtiva = isset($_GET['cat']) ? $_GET['cat'] : 'carnes';
-if ($abaAtiva == 'teste')
-    $abaAtiva = 'testes';
-if (!in_array($abaAtiva, ['carnes', 'bebidas', 'testes'])) {
-    $abaAtiva = 'carnes';
-}
-
-// 3. Funções Auxiliares
+// Funções Auxiliares
 function renderizarListaPremios($stringPremios)
 {
     if (!$stringPremios)
@@ -168,9 +152,9 @@ function renderizarListaPremios($stringPremios)
     return $html;
 }
 
-function getSorteio($conn, $cat)
+function getSorteioAtivo($conn)
 {
-    $res = $conn->query("SELECT * FROM sorteios WHERE categoria = '$cat' AND status IN ('ativo', 'aguardando_manual', 'gravar_video', 'gravando') ORDER BY id DESC LIMIT 1");
+    $res = $conn->query("SELECT * FROM sorteios WHERE status IN ('ativo', 'aguardando_manual', 'gravar_video', 'gravando') ORDER BY id DESC LIMIT 1");
     return ($res && $res->num_rows > 0) ? $res->fetch_assoc() : null;
 }
 
@@ -198,14 +182,17 @@ function getVendasMap($conn, $id)
     return $map;
 }
 
-// 4. Busca de Dados
-$s_carne = getSorteio($conn, 'carnes');
-$s_bebida = getSorteio($conn, 'bebidas');
-$s_teste = getSorteio($conn, 'testes');
+$sorteio = getSorteioAtivo($conn);
+$vendas_map = getVendasMap($conn, $sorteio['id'] ?? null);
 
-$v_carne = getVendasMap($conn, $s_carne['id'] ?? null);
-$v_bebida = getVendasMap($conn, $s_bebida['id'] ?? null);
-$v_teste = getVendasMap($conn, $s_teste['id'] ?? null);
+$vendas_pagas_modal = [];
+foreach ($vendas_map as $numero => $dados_v) {
+    if ($dados_v['status'] == 'pago') {
+        $vendas_pagas_modal[] = ['numero' => $numero, 'nome' => $dados_v['nome']];
+    }
+}
+$total_pagos = count($vendas_pagas_modal);
+$qtd = $sorteio['qtd_numeros'] ?? 25;
 ?>
 
 <!DOCTYPE html>
@@ -213,183 +200,153 @@ $v_teste = getVendasMap($conn, $s_teste['id'] ?? null);
 
 <head>
     <meta charset="UTF-8">
-    <title>Jogos Ativos | Mercado Silveira</title>
-    <link rel="stylesheet" href="../assets/css/global.css?v=<?php echo time(); ?>">
-    <link rel="stylesheet" href="../assets/css/sidebar.css?v=<?php echo time(); ?>">
-    <link rel="stylesheet" href="../assets/css/jogos.css?v=<?php echo time(); ?>">
+    <title>Jogo Ativo | D'King Sorteios</title>
+    <link rel="stylesheet" href="assets/css/global.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="assets/css/sidebar.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="assets/css/jogos.css?v=<?php echo time(); ?>">
 </head>
 
 <body>
 
     <div class="layout-sistema">
         <aside class="sidebar">
-            <?php include '../componentes/sidebar.php'; ?>
+            <?php include 'componentes/sidebar.php'; ?>
         </aside>
 
         <main class="conteudo-principal">
 
-            <div class="submenu-area-jogos">
-                <?php include '../componentes/submenu_categorias.php'; ?>
-            </div>
+            <div class="jogos-body" style="margin-top: 10px;">
+                <div class="conteudo-aba-flex" style="display: flex;">
 
-            <div class="jogos-body">
-                <?php
-                $categorias = [
-                    'carnes' => ['dados' => $s_carne, 'vendas' => $v_carne, 'icone' => '🥩'],
-                    'bebidas' => ['dados' => $s_bebida, 'vendas' => $v_bebida, 'icone' => '🍺'],
-                    'testes' => ['dados' => $s_teste, 'vendas' => $v_teste, 'icone' => '🚀']
-                ];
+                    <?php if ($sorteio): ?>
+                        <div class="coluna-numeros">
+                            <div class="grid-unificado">
+                                <?php
+                                for ($i = 1; $i <= $qtd; $i++):
+                                    $d = $vendas_map[$i] ?? null;
+                                    if ($d !== null) {
+                                        $st = $d['status'];
+                                        $classe = ($st === 'pago') ? 'pago' : 'pendente';
+                                        $nomeJs = addslashes($d['nome']);
+                                        $onclick = "abrirOpcoesIndividuais({$sorteio['id']}, $i, '$st', '$nomeJs', '{$d['tel']}');";
+                                        echo "<div class='quadrado-numero $classe' onclick=\"$onclick\" style='cursor:pointer;' title='Gerenciar este número'>";
+                                        echo "<span class='numero-grande'>$i</span>";
+                                        echo "<span class='nome-pequeno'>" . htmlspecialchars($d['nome']) . "</span>";
+                                        echo "</div>";
+                                    } else {
+                                        echo "<div class='quadrado-numero livre'>";
+                                        echo "<span class='numero-grande'>$i</span>";
+                                        echo "<span class='nome-pequeno'></span>";
+                                        echo "</div>";
+                                    }
+                                endfor;
+                                ?>
+                            </div>
 
-                foreach ($categorias as $tipo => $info):
-                    $sorteio = $info['dados'];
-                    $vendas_map = $info['vendas'];
-                    $icone = $info['icone'];
-                    $qtd = $sorteio['qtd_numeros'] ?? 25;
-
-                    $vendas_pagas_modal = [];
-                    foreach ($vendas_map as $numero => $dados_v) {
-                        if ($dados_v['status'] == 'pago') {
-                            $vendas_pagas_modal[] = ['numero' => $numero, 'nome' => $dados_v['nome']];
-                        }
-                    }
-                    $total_pagos = count($vendas_pagas_modal);
-                    $btnClass = ($tipo == 'carnes') ? 'btn-amarelo' : (($tipo == 'bebidas') ? 'btn-azul' : 'btn-roxo');
-                    ?>
-
-                    <div id="aba-<?php echo $tipo; ?>" class="conteudo-aba-flex"
-                        style="display: <?php echo ($abaAtiva == $tipo ? 'flex' : 'none'); ?>;">
-
-                        <?php if ($sorteio): ?>
-                            <div class="coluna-numeros">
-                                <div class="grid-unificado">
-                                    <?php
-                                    for ($i = 1; $i <= $qtd; $i++):
-                                        $d = $vendas_map[$i] ?? null;
-                                        if ($d !== null) {
-                                            $st = $d['status'];
-                                            $classe = ($st === 'pago') ? 'pago' : 'pendente';
-                                            // A MÁGICA: Adicionado o OnClick no quadrado ocupado!
-                                            $nomeJs = addslashes($d['nome']);
-                                            $onclick = "abrirOpcoesIndividuais({$sorteio['id']}, $i, '$st', '$nomeJs', '{$d['tel']}');";
-                                            echo "<div class='quadrado-numero $classe' onclick=\"$onclick\" style='cursor:pointer;' title='Gerenciar este número'>";
-                                            echo "<span class='numero-grande'>$i</span>";
-                                            echo "<span class='nome-pequeno'>" . htmlspecialchars($d['nome']) . "</span>";
-                                            echo "</div>";
-                                        } else {
-                                            echo "<div class='quadrado-numero livre'>";
-                                            echo "<span class='numero-grande'>$i</span>";
-                                            echo "<span class='nome-pequeno'></span>";
-                                            echo "</div>";
-                                        }
-                                    endfor;
-                                    ?>
+                            <div class="status-barra-container">
+                                <div class="stat-line">
+                                    <span>VENDIDOS: <?php echo $total_pagos; ?>/<?php echo $qtd; ?></span>
+                                    <span><?php echo ($qtd > 0) ? round(($total_pagos / $qtd) * 100) : 0; ?>%</span>
                                 </div>
-
-                                <div class="status-barra-container">
-                                    <div class="stat-line">
-                                        <span>VENDIDOS: <?php echo $total_pagos; ?>/<?php echo $qtd; ?></span>
-                                        <span><?php echo ($qtd > 0) ? round(($total_pagos / $qtd) * 100) : 0; ?>%</span>
-                                    </div>
-                                    <div class="bar-bg">
-                                        <div class="bar-fill"
-                                            style="width: <?php echo ($qtd > 0) ? ($total_pagos / $qtd) * 100 : 0; ?>%;"></div>
-                                    </div>
+                                <div class="bar-bg">
+                                    <div class="bar-fill"
+                                        style="width: <?php echo ($qtd > 0) ? ($total_pagos / $qtd) * 100 : 0; ?>%;"></div>
                                 </div>
+                            </div>
 
-                                <div class="botoes-acao-row">
-                                    <form method="POST" style="flex: 1 1 auto; display: flex;">
-                                        <input type="hidden" name="acao_tudo_pago" value="1">
-                                        <input type="hidden" name="id_tudo_pago" value="<?php echo $sorteio['id']; ?>">
-                                        <button type="submit" class="btn-acao-custom btn-tudo-pago"
-                                            style="cursor: pointer; width: 100%;"
-                                            onclick="return confirm('⚠️ ATENÇÃO: Deseja marcar TODOS os números reservados desta rifa como PAGOS?');">
-                                            TUDO PAGO
+                            <div class="botoes-acao-row">
+                                <form method="POST" style="flex: 1 1 auto; display: flex;">
+                                    <input type="hidden" name="acao_tudo_pago" value="1">
+                                    <input type="hidden" name="id_tudo_pago" value="<?php echo $sorteio['id']; ?>">
+                                    <button type="submit" class="btn-acao-custom btn-tudo-pago"
+                                        style="cursor: pointer; width: 100%;"
+                                        onclick="return confirm('⚠️ ATENÇÃO: Deseja marcar TODOS os números reservados desta rifa como PAGOS?');">
+                                        TUDO PAGO
+                                    </button>
+                                </form>
+
+                                <button onclick="chamarTodos(<?php echo $sorteio['id']; ?>)"
+                                    class="btn-acao-custom btn-chamar">
+                                    📢 CHAMAR
+                                </button>
+
+                                <button onclick="acionarRobo(<?php echo $sorteio['id']; ?>, 'reenviar')"
+                                    class="btn-acao-custom btn-reenviar">
+                                    🔄 LISTA
+                                </button>
+
+                                <button onclick="acionarRobo(<?php echo $sorteio['id']; ?>, 'alerta')"
+                                    class="btn-acao-custom btn-alerta">
+                                    ⚠️ FALTAM
+                                </button>
+
+                                <?php if ($total_pagos >= $qtd): ?>
+                                    <?php if ($sorteio['status'] === 'gravar_video' || $sorteio['status'] === 'gravando'): ?>
+                                        <button disabled class="btn-acao-custom"
+                                            style="background: #64748b; cursor: not-allowed; opacity: 0.7;">
+                                            ⏳ GRAVANDO...
                                         </button>
-                                    </form>
-
-                                    <button onclick="chamarTodos(<?php echo $sorteio['id']; ?>)"
-                                        class="btn-acao-custom btn-chamar">
-                                        📢 CHAMAR
-                                    </button>
-
-                                    <button
-                                        onclick="acionarRobo(<?php echo $sorteio['id']; ?>, '<?php echo $tipo; ?>', 'reenviar')"
-                                        class="btn-acao-custom btn-reenviar">
-                                        🔄 LISTA
-                                    </button>
-
-                                    <button
-                                        onclick="acionarRobo(<?php echo $sorteio['id']; ?>, '<?php echo $tipo; ?>', 'alerta')"
-                                        class="btn-acao-custom btn-alerta">
-                                        ⚠️ FALTAM
-                                    </button>
-                                    <?php if ($total_pagos >= $qtd): ?>
-                                        <?php if ($sorteio['status'] === 'gravar_video' || $sorteio['status'] === 'gravando'): ?>
-                                            <button disabled class="btn-acao-custom"
-                                                style="background: #64748b; cursor: not-allowed; opacity: 0.7;">
-                                                ⏳ GRAVANDO...
-                                            </button>
-                                        <?php else: ?>
-                                            <?php
-                                            $payload = base64_encode(json_encode([
-                                                'id' => $sorteio['id'],
-                                                'cat' => $tipo,
-                                                'premios' => explode('|||', $sorteio['premios']),
-                                                'numeros' => $vendas_pagas_modal
-                                            ]));
-                                            ?>
-                                            <button onclick="abrirModalSorteio('<?php echo $payload; ?>')"
-                                                class="btn-acao-custom btn-sortear-manual">
-                                                🎰 SORTEAR
-                                            </button>
-                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        <?php
+                                        $payload = base64_encode(json_encode([
+                                            'id' => $sorteio['id'],
+                                            'cat' => 'geral',
+                                            'premios' => explode('|||', $sorteio['premios']),
+                                            'numeros' => $vendas_pagas_modal
+                                        ]));
+                                        ?>
+                                        <button onclick="abrirModalSorteio('<?php echo $payload; ?>')"
+                                            class="btn-acao-custom btn-sortear-manual">
+                                            🎰 SORTEAR
+                                        </button>
                                     <?php endif; ?>
+                                <?php endif; ?>
 
-                                    <form method="POST" class="form-cancelar" style="flex: 1 1 auto; display: flex;">
-                                        <input type="hidden" name="acao_cancelar" value="1">
-                                        <input type="hidden" name="id_cancelar" value="<?php echo $sorteio['id']; ?>">
-                                        <button type="submit" class="btn-acao-custom btn-cancelar-outline"
-                                            onclick="return confirm('⚠️ ATENÇÃO: Deseja CANCELAR este sorteio?\n\nO robô irá devolver automaticamente o dinheiro para a carteira de todos os clientes pagos.');">
-                                            CANCELAR
-                                        </button>
-                                    </form>
-                                </div>
+                                <form method="POST" class="form-cancelar" style="flex: 1 1 auto; display: flex;">
+                                    <input type="hidden" name="acao_cancelar" value="1">
+                                    <input type="hidden" name="id_cancelar" value="<?php echo $sorteio['id']; ?>">
+                                    <button type="submit" class="btn-acao-custom btn-cancelar-outline"
+                                        onclick="return confirm('⚠️ ATENÇÃO: Deseja CANCELAR este sorteio?\n\nO robô irá devolver automaticamente o dinheiro para a carteira de todos os clientes pagos.');">
+                                        CANCELAR
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div class="coluna-premios">
+                            <div class="info-sorteio-lateral">
+                                <h2>
+                                    <?php echo htmlspecialchars($sorteio['titulo']); ?>
+                                    <span
+                                        class="badge-num">#<?php echo str_pad($sorteio['numero_visual'], 2, '0', STR_PAD_LEFT); ?></span>
+                                </h2>
                             </div>
 
-                            <div class="coluna-premios">
-                                <div class="info-sorteio-lateral">
-                                    <h2>
-                                        <?php echo htmlspecialchars($sorteio['titulo']); ?>
-                                        <span
-                                            class="badge-num">#<?php echo str_pad($sorteio['numero_visual'], 2, '0', STR_PAD_LEFT); ?></span>
-                                    </h2>
-                                </div>
+                            <h3 class="titulo-premios">🏆 PRÊMIOS</h3>
+                            <ul class="lista-premios">
+                                <?php echo renderizarListaPremios($sorteio['premios'] ?? ''); ?>
+                            </ul>
 
-                                <h3 class="titulo-premios">🏆 PRÊMIOS</h3>
-                                <ul class="lista-premios">
-                                    <?php echo renderizarListaPremios($sorteio['premios'] ?? ''); ?>
-                                </ul>
-
-                                <div class="info-extra">
-                                    <small>VALOR DA COTA</small><br>
-                                    <strong style="font-size:24px;">R$
-                                        <?php echo number_format($sorteio['valor_numero'] ?? 10, 2, ',', '.'); ?></strong>
-                                </div>
+                            <div class="info-extra">
+                                <small>VALOR DA COTA</small><br>
+                                <strong style="font-size:24px;">R$
+                                    <?php echo number_format($sorteio['valor_numero'] ?? 10, 2, ',', '.'); ?></strong>
                             </div>
+                        </div>
 
-                        <?php else: ?>
-                            <div class="card-vazio">
-                                <div class="icone-vazio"><?php echo $icone; ?></div>
-                                <div class="texto-vazio">Nenhum sorteio de <?php echo ucfirst($tipo); ?> ativo</div>
-                                <a href="selecionar_jogo.php?cat=<?php echo $tipo; ?>"
-                                    class="btn-novo-sorteio <?php echo $btnClass; ?>">
-                                    ⚡ INICIAR NOVO SORTEIO
-                                </a>
+                    <?php else: ?>
+                        <div class="card-vazio" style="width: 100%;">
+                            <div class="icone-vazio">🎟️</div>
+                            <div class="texto-vazio">Nenhum sorteio ativo no momento</div>
+                            <div class="subtexto-vazio">Inicie um novo sorteio para gerenciar as cotas e os participantes.
                             </div>
-                        <?php endif; ?>
+                            <a href="selecionar_jogo.php" class="btn-novo-sorteio btn-amarelo">
+                                ⚡ INICIAR NOVO SORTEIO
+                            </a>
+                        </div>
+                    <?php endif; ?>
 
-                    </div>
-                <?php endforeach; ?>
+                </div>
             </div>
 
         </main>
@@ -439,9 +396,6 @@ $v_teste = getVendasMap($conn, $s_teste['id'] ?? null);
 
 
     <script>
-        // ==========================================
-        // NOVAS FUNÇÕES: CONTROLE INDIVIDUAL DO NÚMERO
-        // ==========================================
         function abrirOpcoesIndividuais(sorteio_id, numero, status, nome, telefone) {
             document.getElementById('ind_sorteio_id').value = sorteio_id;
             document.getElementById('ind_numero').value = numero;
@@ -451,7 +405,6 @@ $v_teste = getVendasMap($conn, $s_teste['id'] ?? null);
             document.getElementById('ind_nome_display').innerText = nome;
             document.getElementById('ind_tel_display').innerText = telefone;
 
-            // Esconde botão de marcar pago se já estiver pago
             const btnPago = document.getElementById('btnIndPago');
             if (status === 'pago') {
                 btnPago.style.display = 'none';
@@ -480,7 +433,6 @@ $v_teste = getVendasMap($conn, $s_teste['id'] ?? null);
                 return;
             }
 
-            // Avisa que tá processando
             const containerModal = document.querySelector('#modalInd .modal-sorteio-box');
             containerModal.style.opacity = '0.5';
 
@@ -503,7 +455,6 @@ $v_teste = getVendasMap($conn, $s_teste['id'] ?? null);
                             document.getElementById('modalInd').style.display = 'none';
                             containerModal.style.opacity = '1';
                         } else {
-                            // Se marcou como pago ou apagou, recarrega a página para atualizar o quadrado
                             window.location.reload();
                         }
                     } else {
@@ -518,9 +469,6 @@ $v_teste = getVendasMap($conn, $s_teste['id'] ?? null);
                 });
         }
 
-        // ==========================================
-        // FUNÇÕES ORIGINAIS
-        // ==========================================
         function chamarTodos(idSorteio) {
             if (!confirm('⚠️ ATENÇÃO: Marcar todos os membros no WhatsApp?')) return;
             let btn = event.target;
@@ -573,11 +521,11 @@ $v_teste = getVendasMap($conn, $s_teste['id'] ?? null);
 
                 modal.innerHTML = `
             <div class="modal-sorteio-box">
-                <h2 style="text-align:center; margin-bottom:20px; font-weight:900;">🎰 SORTEAR: ${dados.cat.toUpperCase()}</h2>
+                <h2 style="text-align:center; margin-bottom:20px; font-weight:900;">🎰 REALIZAR SORTEIO</h2>
                 
                 <form id="formSorteioAJAX" onsubmit="enviarSorteioImediato(event, this)">
                     <input type="hidden" name="sorteio_id" value="${dados.id}">
-                    <input type="hidden" name="categoria" value="${dados.cat}">
+                    <input type="hidden" name="categoria" value="geral">
                     ${htmlPremios}
                     <div style="display:flex; gap:10px; margin-top:20px;">
                         <button type="button" onclick="fecharModalSorteio()" style="flex:1; padding:15px; border-radius:10px; border:none; background:#e2e8f0; font-weight:900; cursor:pointer;">CANCELAR</button>
@@ -619,7 +567,7 @@ $v_teste = getVendasMap($conn, $s_teste['id'] ?? null);
             document.getElementById('modalSorteio').style.display = 'none';
         }
 
-        function acionarRobo(idSorteio, categoria, acao) {
+        function acionarRobo(idSorteio, acao) {
             let btn = event.target.closest('button');
             let txtOriginal = btn.innerHTML;
             btn.innerHTML = "⏳...";
@@ -628,7 +576,6 @@ $v_teste = getVendasMap($conn, $s_teste['id'] ?? null);
             let fd = new FormData();
             fd.append('acao_robo', acao);
             fd.append('sorteio_id', idSorteio);
-            fd.append('categoria', categoria);
 
             fetch(window.location.href, {
                 method: 'POST',
@@ -656,26 +603,6 @@ $v_teste = getVendasMap($conn, $s_teste['id'] ?? null);
                     btn.disabled = false;
                 });
         }
-    </script>
-    <script>
-        // SISTEMA DE RECARREGAMENTO INTELIGENTE (ANTI-TELA VELHA) - 5 MINUTOS
-        let ultimaVezNaTela = Date.now();
-
-        document.addEventListener("visibilitychange", function () {
-            if (document.visibilityState === 'visible') {
-                let agora = Date.now();
-                // Calcula quanto tempo a pessoa ficou fora dessa aba (em milissegundos)
-                let tempoFora = agora - ultimaVezNaTela;
-
-                // Se passou mais de 5 minutos (300.000 ms) em outra aba ou fora do PC, recarrega a página sozinho
-                if (tempoFora > 300000) {
-                    window.location.reload();
-                }
-            } else {
-                // Grava a hora exata que o usuário minimizou o navegador ou mudou de aba
-                ultimaVezNaTela = Date.now();
-            }
-        });
     </script>
 </body>
 

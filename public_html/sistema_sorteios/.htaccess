@@ -1,4 +1,0 @@
-AuthType Basic
-AuthName "Área Restrita - Mercado Silveira"
-AuthUserFile /home/mercadosilveira.dkingsorteios.com.br/.htpasswd
-Require valid-user

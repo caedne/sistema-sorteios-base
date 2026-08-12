@@ -26,26 +26,26 @@ function uploadArquivo($file)
     if (isset($file) && $file['error'] == 0) {
         $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
         $novoNome = uniqid() . "." . $ext;
-        $destino = "../assets/uploads/" . $novoNome;
+        $destino = "assets/uploads/" . $novoNome;
         if (move_uploaded_file($file['tmp_name'], $destino))
             return $novoNome;
     }
     return null;
 }
 
-function obterProximoNumeroPorCategoria($conn, $categoria)
+function obterProximoNumeroUnico($conn)
 {
     $conn->query("CREATE TABLE IF NOT EXISTS contador_categorias (
         id INT PRIMARY KEY AUTO_INCREMENT, categoria VARCHAR(50) NOT NULL UNIQUE, proximo_numero INT NOT NULL DEFAULT 1
     )");
-    $sql = "SELECT proximo_numero FROM contador_categorias WHERE categoria = '$categoria'";
+    $sql = "SELECT proximo_numero FROM contador_categorias WHERE categoria = 'geral'";
     $res = $conn->query($sql);
     if ($res && $res->num_rows > 0) {
         $row = $res->fetch_assoc();
         $numero = $row['proximo_numero'];
-        $conn->query("UPDATE contador_categorias SET proximo_numero = proximo_numero + 1 WHERE categoria = '$categoria'");
+        $conn->query("UPDATE contador_categorias SET proximo_numero = proximo_numero + 1 WHERE categoria = 'geral'");
     } else {
-        $conn->query("INSERT INTO contador_categorias (categoria, proximo_numero) VALUES ('$categoria', 2)");
+        $conn->query("INSERT INTO contador_categorias (categoria, proximo_numero) VALUES ('geral', 2)");
         $numero = 1;
     }
     return $numero;
@@ -58,7 +58,6 @@ if (isset($_POST['acao']) && $_POST['acao'] == 'reordenar') {
     $ids = json_decode($_POST['ids'], true);
 
     if (is_array($ids) && count($ids) > 0) {
-        // 1. Pega os "números visuais" (#02, #03...) de quem está na fila e organiza do menor pro maior
         $idsStr = implode(',', array_map('intval', $ids));
         $resNums = $conn->query("SELECT numero_visual FROM sorteios WHERE id IN ($idsStr) ORDER BY numero_visual ASC");
 
@@ -67,22 +66,21 @@ if (isset($_POST['acao']) && $_POST['acao'] == 'reordenar') {
             $numerosDisponiveis[] = $row['numero_visual'];
         }
 
-        // 2. Atualiza a posição da fila e re-distribui os "#números" na nova ordem
         foreach ($ids as $index => $id) {
             $ordem = $index + 1;
             $id = intval($id);
-            $numeroVisualCorreto = $numerosDisponiveis[$index]; // Dá o menor número pro 1º da fila, o segundo pro 2º, etc.
+            $numeroVisualCorreto = $numerosDisponiveis[$index];
 
             $conn->query("UPDATE sorteios SET ordem_fila = $ordem, numero_visual = $numeroVisualCorreto WHERE id = $id AND status = 'fila'");
         }
     }
     exit;
 }
+
 // 1. SALVAR NOVO
 if (isset($_POST['acao']) && $_POST['acao'] == 'novo') {
     $titulo_digitado = $conn->real_escape_string($_POST['titulo_parcial']);
-    $cat = $conn->real_escape_string($_POST['categoria']);
-    $proximoNumeroVisual = obterProximoNumeroPorCategoria($conn, $cat);
+    $proximoNumeroVisual = obterProximoNumeroUnico($conn);
     $valor = str_replace(',', '.', $_POST['valor']);
     $qtd_numeros = intval($_POST['qtd_numeros']);
 
@@ -100,21 +98,20 @@ if (isset($_POST['acao']) && $_POST['acao'] == 'novo') {
     $premiosString = implode("|||", $premios);
 
     $sql = "INSERT INTO sorteios (titulo, categoria, valor_numero, qtd_numeros, numero_visual, premios, imagem, imagem2, video, status) 
-            VALUES ('$titulo_digitado', '$cat', '$valor', $qtd_numeros, $proximoNumeroVisual, '$premiosString', '$imagem', '$imagem2', '$video', 'inativo')";
+            VALUES ('$titulo_digitado', 'geral', '$valor', $qtd_numeros, $proximoNumeroVisual, '$premiosString', '$imagem', '$imagem2', '$video', 'inativo')";
 
     $conn->query($sql);
-    header("Location: ?cat=$cat");
+    header("Location: selecionar_jogo.php");
     exit;
 }
 
 // 2. EDITAR
 if (isset($_POST['acao']) && $_POST['acao'] == 'editar') {
     $id = intval($_POST['id_editar']);
-    $cat_origem = $conn->real_escape_string($_POST['categoria_origem']);
 
     $check = $conn->query("SELECT status, imagem, imagem2, video FROM sorteios WHERE id = $id")->fetch_assoc();
     if ($check['status'] == 'ativo') {
-        echo "<script>alert('BLOQUEADO: Sorteio ativo não pode ser editado!'); window.location.href='?cat=$cat_origem';</script>";
+        echo "<script>alert('BLOQUEADO: Sorteio ativo não pode ser editado!'); window.location.href='selecionar_jogo.php';</script>";
         exit;
     }
 
@@ -126,13 +123,13 @@ if (isset($_POST['acao']) && $_POST['acao'] == 'editar') {
     // IMAGEM 1
     $novaImg = uploadArquivo($_FILES['imagem']);
     if ($novaImg) {
-        if (!empty($check['imagem']) && file_exists("../assets/uploads/" . $check['imagem'])) {
-            unlink("../assets/uploads/" . $check['imagem']);
+        if (!empty($check['imagem']) && file_exists("assets/uploads/" . $check['imagem'])) {
+            unlink("assets/uploads/" . $check['imagem']);
         }
         $updateMidia .= ", imagem='$novaImg'";
     } elseif (isset($_POST['apagar_imagem']) && $_POST['apagar_imagem'] == '1') {
-        if (!empty($check['imagem']) && file_exists("../assets/uploads/" . $check['imagem'])) {
-            unlink("../assets/uploads/" . $check['imagem']);
+        if (!empty($check['imagem']) && file_exists("assets/uploads/" . $check['imagem'])) {
+            unlink("assets/uploads/" . $check['imagem']);
         }
         $updateMidia .= ", imagem=NULL";
     }
@@ -140,13 +137,13 @@ if (isset($_POST['acao']) && $_POST['acao'] == 'editar') {
     // IMAGEM 2
     $novaImg2 = uploadArquivo($_FILES['imagem2']);
     if ($novaImg2) {
-        if (!empty($check['imagem2']) && file_exists("../assets/uploads/" . $check['imagem2'])) {
-            unlink("../assets/uploads/" . $check['imagem2']);
+        if (!empty($check['imagem2']) && file_exists("assets/uploads/" . $check['imagem2'])) {
+            unlink("assets/uploads/" . $check['imagem2']);
         }
         $updateMidia .= ", imagem2='$novaImg2'";
     } elseif (isset($_POST['apagar_imagem2']) && $_POST['apagar_imagem2'] == '1') {
-        if (!empty($check['imagem2']) && file_exists("../assets/uploads/" . $check['imagem2'])) {
-            unlink("../assets/uploads/" . $check['imagem2']);
+        if (!empty($check['imagem2']) && file_exists("assets/uploads/" . $check['imagem2'])) {
+            unlink("assets/uploads/" . $check['imagem2']);
         }
         $updateMidia .= ", imagem2=NULL";
     }
@@ -154,13 +151,13 @@ if (isset($_POST['acao']) && $_POST['acao'] == 'editar') {
     // VÍDEO
     $novoVid = uploadArquivo($_FILES['video']);
     if ($novoVid) {
-        if (!empty($check['video']) && file_exists("../assets/uploads/" . $check['video'])) {
-            unlink("../assets/uploads/" . $check['video']);
+        if (!empty($check['video']) && file_exists("assets/uploads/" . $check['video'])) {
+            unlink("assets/uploads/" . $check['video']);
         }
         $updateMidia .= ", video='$novoVid'";
     } elseif (isset($_POST['apagar_video']) && $_POST['apagar_video'] == '1') {
-        if (!empty($check['video']) && file_exists("../assets/uploads/" . $check['video'])) {
-            unlink("../assets/uploads/" . $check['video']);
+        if (!empty($check['video']) && file_exists("assets/uploads/" . $check['video'])) {
+            unlink("assets/uploads/" . $check['video']);
         }
         $updateMidia .= ", video=NULL";
     }
@@ -169,31 +166,30 @@ if (isset($_POST['acao']) && $_POST['acao'] == 'editar') {
 
     $sql = "UPDATE sorteios SET titulo='$titulo', valor_numero='$valor', qtd_numeros=$qtd_numeros, premios='$premios' $updateMidia WHERE id=$id";
     $conn->query($sql);
-    header("Location: ?cat=$cat_origem");
+    header("Location: selecionar_jogo.php");
     exit;
 }
 
-// 3. ATIVAR (Clonar para a fila com todas as mídias)
+// 3. ATIVAR
 if (isset($_POST['acao']) && $_POST['acao'] == 'ativar') {
     $id_molde = intval($_POST['id']);
-    $cat = $conn->real_escape_string($_POST['categoria']);
 
-    $temAtivo = $conn->query("SELECT id FROM sorteios WHERE categoria = '$cat' AND status = 'ativo'")->num_rows > 0;
+    $temAtivo = $conn->query("SELECT id FROM sorteios WHERE status = 'ativo'")->num_rows > 0;
     $statusNovo = $temAtivo ? 'fila' : 'ativo';
 
-    $resOrdem = $conn->query("SELECT MAX(ordem_fila) as max_ordem FROM sorteios WHERE categoria = '$cat' AND status = 'fila'");
+    $resOrdem = $conn->query("SELECT MAX(ordem_fila) as max_ordem FROM sorteios WHERE status = 'fila'");
     $ordemNova = ($temAtivo) ? (intval($resOrdem->fetch_assoc()['max_ordem']) + 1) : 0;
 
-    $resNum = $conn->query("SELECT MAX(numero_visual) as max_id FROM sorteios WHERE categoria = '$cat'");
+    $resNum = $conn->query("SELECT MAX(numero_visual) as max_id FROM sorteios");
     $rowNum = $resNum->fetch_assoc();
     $novoNum = ($rowNum['max_id']) ? $rowNum['max_id'] + 1 : 1;
 
     $sqlClone = "INSERT INTO sorteios (titulo, categoria, valor_numero, qtd_numeros, premios, status, imagem, imagem2, video, numero_visual, data_sorteio, ordem_fila)
-        SELECT titulo, categoria, valor_numero, qtd_numeros, premios, '$statusNovo', imagem, imagem2, video, $novoNum, NULL, $ordemNova
+        SELECT titulo, 'geral', valor_numero, qtd_numeros, premios, '$statusNovo', imagem, imagem2, video, $novoNum, NULL, $ordemNova
         FROM sorteios WHERE id = $id_molde";
 
     if ($conn->query($sqlClone)) {
-        header("Location: ?cat=$cat");
+        header("Location: selecionar_jogo.php");
         exit;
     } else {
         die("Erro ao ativar/enfileirar: " . $conn->error);
@@ -203,43 +199,33 @@ if (isset($_POST['acao']) && $_POST['acao'] == 'ativar') {
 // 4. EXCLUIR
 if (isset($_POST['acao']) && $_POST['acao'] == 'excluir') {
     $id = intval($_POST['id']);
-    $cat_origem = $conn->real_escape_string($_POST['categoria']);
 
     $busca = $conn->query("SELECT status, imagem, imagem2, video FROM sorteios WHERE id = $id");
     $dados = $busca->fetch_assoc();
 
     if ($dados['status'] == 'ativo') {
-        echo "<script>alert('❌ PERIGO: Sorteio ATIVO! Finalize antes de excluir.'); window.location.href='?cat=$cat_origem';</script>";
+        echo "<script>alert('❌ PERIGO: Sorteio ATIVO! Finalize antes de excluir.'); window.location.href='selecionar_jogo.php';</script>";
         exit;
     }
 
-    if (!empty($dados['imagem']) && file_exists("../assets/uploads/" . $dados['imagem'])) {
-        unlink("../assets/uploads/" . $dados['imagem']);
+    if (!empty($dados['imagem']) && file_exists("assets/uploads/" . $dados['imagem'])) {
+        unlink("assets/uploads/" . $dados['imagem']);
     }
-    if (!empty($dados['imagem2']) && file_exists("../assets/uploads/" . $dados['imagem2'])) {
-        unlink("../assets/uploads/" . $dados['imagem2']);
+    if (!empty($dados['imagem2']) && file_exists("assets/uploads/" . $dados['imagem2'])) {
+        unlink("assets/uploads/" . $dados['imagem2']);
     }
-    if (!empty($dados['video']) && file_exists("../assets/uploads/" . $dados['video'])) {
-        unlink("../assets/uploads/" . $dados['video']);
+    if (!empty($dados['video']) && file_exists("assets/uploads/" . $dados['video'])) {
+        unlink("assets/uploads/" . $dados['video']);
     }
 
     $conn->query("UPDATE sorteios SET status = 'arquivado', categoria = 'lixeira', imagem = NULL, imagem2 = NULL, video = NULL WHERE id = $id");
-    header("Location: ?cat=$cat_origem");
+    header("Location: selecionar_jogo.php");
     exit;
 }
 
 // --- DADOS DA PÁGINA ---
-$abaAtiva = isset($_GET['cat']) ? $_GET['cat'] : 'carnes';
-if ($abaAtiva == 'teste')
-    $abaAtiva = 'testes';
-
-$proximoCarnes = ($conn->query("SELECT proximo_numero FROM contador_categorias WHERE categoria = 'carnes'")->fetch_assoc()['proximo_numero'] ?? 1);
-$proximoBebidas = ($conn->query("SELECT proximo_numero FROM contador_categorias WHERE categoria = 'bebidas'")->fetch_assoc()['proximo_numero'] ?? 1);
-$proximoTeste = ($conn->query("SELECT proximo_numero FROM contador_categorias WHERE categoria = 'testes'")->fetch_assoc()['proximo_numero'] ?? 1);
-
-$idAtivoCarne = ($conn->query("SELECT id FROM sorteios WHERE categoria = 'carnes' AND status = 'ativo' LIMIT 1")->fetch_assoc()['id'] ?? 0);
-$idAtivoBebida = ($conn->query("SELECT id FROM sorteios WHERE categoria = 'bebidas' AND status = 'ativo' LIMIT 1")->fetch_assoc()['id'] ?? 0);
-$idAtivoTeste = ($conn->query("SELECT id FROM sorteios WHERE categoria = 'testes' AND status = 'ativo' LIMIT 1")->fetch_assoc()['id'] ?? 0);
+$proximoNumeroGeral = ($conn->query("SELECT proximo_numero FROM contador_categorias WHERE categoria = 'geral'")->fetch_assoc()['proximo_numero'] ?? 1);
+$idAtivoGeral = ($conn->query("SELECT id FROM sorteios WHERE status = 'ativo' LIMIT 1")->fetch_assoc()['id'] ?? 0);
 
 $resTitulos = $conn->query("SELECT titulo, COUNT(*) as freq FROM sorteios GROUP BY titulo ORDER BY freq DESC LIMIT 50");
 $historicoTitulos = [];
@@ -269,11 +255,10 @@ $historicoPremios = array_slice(array_keys($freqPremios), 0, 50);
 
 <head>
     <meta charset="UTF-8">
-    <title>Painel de Sorteios - Playlist</title>
-    <link rel="stylesheet" href="../assets/css/global.css?v=<?php echo time(); ?>">
-    <link rel="stylesheet" href="../assets/css/sidebar.css?v=<?php echo time(); ?>">
-    <link rel="stylesheet" href="../assets/css/submenu.css?v=<?php echo time(); ?>">
-    <link rel="stylesheet" href="../assets/css/selecao.css?v=<?php echo time(); ?>">
+    <title>Criar / Editar Sorteios | D'King Sorteios</title>
+    <link rel="stylesheet" href="assets/css/global.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="assets/css/sidebar.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="assets/css/selecao.css?v=<?php echo time(); ?>">
     <style>
         .btn-fila {
             background-color: #f59e0b !important;
@@ -301,7 +286,6 @@ $historicoPremios = array_slice(array_keys($freqPremios), 0, 50);
             transition: transform 0.2s;
         }
 
-        /* Removi cursor grab para indicar clique */
         .card-sorteio.drag-item:active {
             transform: scale(1.02);
             z-index: 10;
@@ -311,93 +295,39 @@ $historicoPremios = array_slice(array_keys($freqPremios), 0, 50);
 </head>
 
 <body>
-    <?php include '../componentes/sidebar.php'; ?>
+    <?php include 'componentes/sidebar.php'; ?>
     <div class="conteudo-principal">
-        <?php include '../componentes/submenu_categorias.php'; ?>
         <div class="painel-grid">
 
-            <div id="aba-carnes" class="conteudo-aba <?php echo $abaAtiva == 'carnes' ? 'visivel' : ''; ?>">
+            <div class="conteudo-aba visivel" style="display: block;">
                 <h3 class="titulo-secao">🟢 EXECUÇÃO E FILA DE ESPERA</h3>
-                <div class="grid-cards sortable-list" data-cat="carnes">
+                <div class="grid-cards sortable-list" data-cat="geral">
                     <?php
-                    $fila = $conn->query("SELECT * FROM sorteios WHERE categoria = 'carnes' AND status IN ('ativo', 'fila') ORDER BY CASE WHEN status='ativo' THEN 1 ELSE 2 END, ordem_fila ASC");
+                    $fila = $conn->query("SELECT * FROM sorteios WHERE status IN ('ativo', 'fila') ORDER BY CASE WHEN status='ativo' THEN 1 ELSE 2 END, ordem_fila ASC");
                     while ($row = $fila->fetch_assoc()) {
-                        renderizarCard($row, $idAtivoCarne, 'carnes', 0);
+                        renderizarCard($row, $idAtivoGeral, $proximoNumeroGeral);
                     }
                     if ($fila->num_rows == 0)
                         echo "<p style='color:#64748b;'>Nenhum sorteio rodando ou na fila.</p>";
                     ?>
                 </div>
+
                 <h3 class="titulo-secao">📁 MODELOS DISPONÍVEIS</h3>
                 <div class="grid-cards">
                     <?php
                     $titulosVistos = [];
-                    $modelos = $conn->query("SELECT * FROM sorteios WHERE categoria = 'carnes' AND status = 'inativo' ORDER BY id DESC");
+                    $modelos = $conn->query("SELECT * FROM sorteios WHERE status = 'inativo' ORDER BY id DESC");
                     while ($row = $modelos->fetch_assoc()) {
                         if (in_array($row['titulo'], $titulosVistos))
                             continue;
                         $titulosVistos[] = $row['titulo'];
-                        renderizarCard($row, $idAtivoCarne, 'carnes', $proximoCarnes);
+                        renderizarCard($row, $idAtivoGeral, $proximoNumeroGeral);
                     }
                     ?>
                 </div>
             </div>
 
-            <div id="aba-bebidas" class="conteudo-aba <?php echo $abaAtiva == 'bebidas' ? 'visivel' : ''; ?>">
-                <h3 class="titulo-secao">🟢 EXECUÇÃO E FILA DE ESPERA</h3>
-                <div class="grid-cards sortable-list" data-cat="bebidas">
-                    <?php
-                    $fila = $conn->query("SELECT * FROM sorteios WHERE categoria = 'bebidas' AND status IN ('ativo', 'fila') ORDER BY CASE WHEN status='ativo' THEN 1 ELSE 2 END, ordem_fila ASC");
-                    while ($row = $fila->fetch_assoc()) {
-                        renderizarCard($row, $idAtivoBebida, 'bebidas', 0);
-                    }
-                    if ($fila->num_rows == 0)
-                        echo "<p style='color:#64748b;'>Nenhum sorteio rodando ou na fila.</p>";
-                    ?>
-                </div>
-                <h3 class="titulo-secao">📁 MODELOS DISPONÍVEIS</h3>
-                <div class="grid-cards">
-                    <?php
-                    $titulosVistos = [];
-                    $modelos = $conn->query("SELECT * FROM sorteios WHERE categoria = 'bebidas' AND status = 'inativo' ORDER BY id DESC");
-                    while ($row = $modelos->fetch_assoc()) {
-                        if (in_array($row['titulo'], $titulosVistos))
-                            continue;
-                        $titulosVistos[] = $row['titulo'];
-                        renderizarCard($row, $idAtivoBebida, 'bebidas', $proximoBebidas);
-                    }
-                    ?>
-                </div>
-            </div>
-
-            <div id="aba-testes" class="conteudo-aba <?php echo $abaAtiva == 'testes' ? 'visivel' : ''; ?>">
-                <h3 class="titulo-secao">🟢 EXECUÇÃO E FILA DE ESPERA</h3>
-                <div class="grid-cards sortable-list" data-cat="testes">
-                    <?php
-                    $fila = $conn->query("SELECT * FROM sorteios WHERE categoria = 'testes' AND status IN ('ativo', 'fila') ORDER BY CASE WHEN status='ativo' THEN 1 ELSE 2 END, ordem_fila ASC");
-                    while ($row = $fila->fetch_assoc()) {
-                        renderizarCard($row, $idAtivoTeste, 'testes', 0);
-                    }
-                    if ($fila->num_rows == 0)
-                        echo "<p style='color:#64748b;'>Nenhum sorteio rodando ou na fila.</p>";
-                    ?>
-                </div>
-                <h3 class="titulo-secao">📁 MODELOS DISPONÍVEIS</h3>
-                <div class="grid-cards">
-                    <?php
-                    $titulosVistos = [];
-                    $modelos = $conn->query("SELECT * FROM sorteios WHERE categoria = 'testes' AND status = 'inativo' ORDER BY id DESC");
-                    while ($row = $modelos->fetch_assoc()) {
-                        if (in_array($row['titulo'], $titulosVistos))
-                            continue;
-                        $titulosVistos[] = $row['titulo'];
-                        renderizarCard($row, $idAtivoTeste, 'testes', $proximoTeste);
-                    }
-                    ?>
-                </div>
-            </div>
-
-            <div class="btn-novo-container">
+            <div class="btn-novo-container" style="margin-top: 30px;">
                 <button class="btn-novo" onclick="abrirModalNovo()">+ NOVO MODELO</button>
             </div>
         </div>
@@ -409,11 +339,10 @@ $historicoPremios = array_slice(array_keys($freqPremios), 0, 50);
             <h3>Criar Novo Sorteio</h3>
             <form method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="acao" value="novo">
-                <input type="hidden" name="categoria" id="input_cat_novo">
                 <div class="form-group">
                     <label>IDENTIFICAÇÃO:</label>
                     <div class="input-group-joined">
-                        <div id="label_cat_novo" class="addon-prefix">...</div>
+                        <div id="label_cat_novo" class="addon-prefix">SORTEIO</div>
                         <input type="text" name="titulo_parcial" class="input-middle autocomplete-input"
                             placeholder="Nome do sorteio..." autocomplete="off" required>
                         <div class="addon-suffix" id="badge_id_novo">#--</div>
@@ -460,7 +389,6 @@ $historicoPremios = array_slice(array_keys($freqPremios), 0, 50);
             <form method="POST" enctype="multipart/form-data" id="formEditar">
                 <input type="hidden" name="acao" value="editar">
                 <input type="hidden" name="id_editar" id="edit_id">
-                <input type="hidden" name="categoria_origem" id="edit_cat_origem">
                 <input type="hidden" name="apagar_imagem" id="apagar_imagem" value="0">
                 <input type="hidden" name="apagar_imagem2" id="apagar_imagem2" value="0">
                 <input type="hidden" name="apagar_video" id="apagar_video" value="0">
@@ -468,7 +396,7 @@ $historicoPremios = array_slice(array_keys($freqPremios), 0, 50);
                 <div class="form-group">
                     <label>IDENTIFICAÇÃO:</label>
                     <div class="input-group-joined">
-                        <div id="badge_categoria_editar" class="addon-prefix">...</div>
+                        <div id="badge_categoria_editar" class="addon-prefix">SORTEIO</div>
                         <input type="text" name="titulo_parcial" id="edit_titulo"
                             class="input-middle autocomplete-input" autocomplete="off" required>
                         <div class="addon-suffix" id="badge_id_editar">#--</div>
@@ -521,25 +449,21 @@ $historicoPremios = array_slice(array_keys($freqPremios), 0, 50);
 
     <form id="formAtivar" method="POST" style="display:none;">
         <input type="hidden" name="acao" value="ativar">
-        <input type="hidden" name="categoria" id="ativar_cat">
         <input type="hidden" name="id" id="ativar_id">
     </form>
     <form id="formExcluir" method="POST" style="display:none;">
         <input type="hidden" name="acao" value="excluir">
         <input type="hidden" name="id" id="excluir_id">
-        <input type="hidden" name="categoria" id="excluir_cat">
     </form>
 
     <?php
-    // --- FUNÇÃO DE RENDERIZAR ATUALIZADA ---
-    function renderizarCard($row, $idAtivoDaCategoria, $tipo, $proximoNumero)
+    function renderizarCard($row, $idAtivoDaCategoria, $proximoNumero)
     {
         $idReal = $row['id'];
         $status = $row['status'];
         $isAtivo = ($status == 'ativo');
         $isFila = ($status == 'fila');
 
-        // Protege variáveis pro JS
         $imgJS = !empty($row['imagem']) ? $row['imagem'] : '';
         $img2JS = !empty($row['imagem2']) ? $row['imagem2'] : '';
         $vidJS = !empty($row['video']) ? $row['video'] : '';
@@ -561,16 +485,16 @@ $historicoPremios = array_slice(array_keys($freqPremios), 0, 50);
             $txtBtn = "NA FILA (" . $row['ordem_fila'] . "º) ☰";
             $clickBtn = "event.stopPropagation();";
             $cardClass = "drag-item";
-            $onclickCard = "abrirModalEditar($idReal, \"$tituloJS\", \"$valorJS\", {$row['qtd_numeros']}, $premiosJS, \"$tipo\", \"{$row['numero_visual']}\", \"$imgJS\", \"$vidJS\", \"$status\", \"$img2JS\")";
-            $botaoExcluir = "<div class='btn-excluir-card' onclick=\"event.stopPropagation(); excluirSorteio($idReal, '$tipo')\" title='Remover'>&times;</div>";
+            $onclickCard = "abrirModalEditar($idReal, \"$tituloJS\", \"$valorJS\", {$row['qtd_numeros']}, $premiosJS, \"{$row['numero_visual']}\", \"$imgJS\", \"$vidJS\", \"$status\", \"$img2JS\")";
+            $botaoExcluir = "<div class='btn-excluir-card' onclick=\"event.stopPropagation(); excluirSorteio($idReal)\" title='Remover'>&times;</div>";
         } else {
             $badgeCard = "MODELO";
             $btnClasse = "btn-iniciar-card";
             $txtBtn = ($idAtivoDaCategoria > 0) ? "COLOCAR NA FILA" : "ATIVAR AGORA";
-            $clickBtn = "event.stopPropagation(); ativarSorteio('$tipo', $idReal)";
+            $clickBtn = "event.stopPropagation(); ativarSorteio($idReal)";
             $cardClass = "";
-            $onclickCard = "abrirModalEditar($idReal, \"$tituloJS\", \"$valorJS\", {$row['qtd_numeros']}, $premiosJS, \"$tipo\", \"{$row['numero_visual']}\", \"$imgJS\", \"$vidJS\", \"$status\", \"$img2JS\")";
-            $botaoExcluir = "<div class='btn-excluir-card' onclick=\"event.stopPropagation(); excluirSorteio($idReal, '$tipo')\">&times;</div>";
+            $onclickCard = "abrirModalEditar($idReal, \"$tituloJS\", \"$valorJS\", {$row['qtd_numeros']}, $premiosJS, \"{$row['numero_visual']}\", \"$imgJS\", \"$vidJS\", \"$status\", \"$img2JS\")";
+            $botaoExcluir = "<div class='btn-excluir-card' onclick=\"event.stopPropagation(); excluirSorteio($idReal)\">&times;</div>";
         }
 
         echo "<div class='card-sorteio $cardClass' data-id='$idReal' onclick='$onclickCard' style='position: relative;'>
@@ -598,33 +522,17 @@ $historicoPremios = array_slice(array_keys($freqPremios), 0, 50);
 
     <script>
         let cacheNovo = {}; let cacheEdit = {};
-        const proximoCarnes = <?php echo $proximoCarnes; ?>; const proximoBebidas = <?php echo $proximoBebidas; ?>; const proximoTeste = <?php echo $proximoTeste; ?>;
-        let categoriaAtualGlobal = "<?php echo $abaAtiva; ?>";
-
-        function abrirAba(cat) {
-            categoriaAtualGlobal = cat;
-            document.querySelectorAll('.conteudo-aba').forEach(el => { el.classList.remove('visivel'); el.style.display = 'none'; });
-            const abaAlvo = document.getElementById('aba-' + cat);
-            if (abaAlvo) { abaAlvo.classList.add('visivel'); abaAlvo.style.display = 'block'; }
-            document.querySelectorAll('.btn-capsula').forEach(btn => btn.classList.remove('ativo'));
-            const btnAtivo = document.querySelector(`.btn-capsula[data-cat="${cat}"]`);
-            if (btnAtivo) btnAtivo.classList.add('ativo');
-            const url = new URL(window.location); url.searchParams.set('cat', cat); window.history.pushState({}, '', url);
-        }
+        const proximoNumeroGeral = <?php echo $proximoNumeroGeral; ?>;
 
         function abrirModalNovo() {
-            let cat = categoriaAtualGlobal;
-            document.getElementById('input_cat_novo').value = cat; document.getElementById('label_cat_novo').innerText = cat.toUpperCase();
-            let proximo = 1; let qtdPadrao = 25; let qtdPremiosPadrao = 5;
-            if (cat === 'carnes') { proximo = proximoCarnes; }
-            else if (cat === 'bebidas') { proximo = proximoBebidas; qtdPadrao = 10; qtdPremiosPadrao = 1; }
-            else if (cat === 'testes') { proximo = proximoTeste; }
+            let proximo = proximoNumeroGeral;
+            let qtdPadrao = 25; let qtdPremiosPadrao = 5;
 
             document.getElementById('badge_id_novo').innerText = '#' + String(proximo).padStart(2, '0');
             document.getElementById('qtd_novo').value = qtdPadrao;
             let inputPremiosNovo = document.querySelector('input[onchange="gerarInputsPremios(\'container-premios-novo\', this.value, \'novo\')"]');
             if (inputPremiosNovo) inputPremiosNovo.value = qtdPremiosPadrao;
-            // Limpa os resíduos (fantasmas) do card anterior
+
             document.getElementById('container-premios-novo').innerHTML = '';
             cacheNovo = {};
             document.getElementById('preview-img-novo').innerHTML = ''; document.getElementById('preview-img2-novo').innerHTML = ''; document.getElementById('preview-vid-novo').innerHTML = '';
@@ -632,22 +540,19 @@ $historicoPremios = array_slice(array_keys($freqPremios), 0, 50);
             gerarInputsPremios('container-premios-novo', qtdPremiosPadrao, 'novo'); calcularTotal('novo');
         }
 
-        function abrirModalEditar(id, titulo, valor, qtd, premios, cat, num, img, vid, status, img2) {
+        function abrirModalEditar(id, titulo, valor, qtd, premios, num, img, vid, status, img2) {
             if (status === 'ativo') return;
-            document.getElementById('edit_id').value = id; document.getElementById('edit_cat_origem').value = cat;
+            document.getElementById('edit_id').value = id;
             document.getElementById('apagar_imagem').value = "0"; document.getElementById('apagar_imagem2').value = "0"; document.getElementById('apagar_video').value = "0";
 
-            let proximoNum = 1;
-            if (cat === 'carnes') proximoNum = proximoCarnes; else if (cat === 'bebidas') proximoNum = proximoBebidas; else if (cat === 'testes') proximoNum = proximoTeste;
-            document.getElementById('badge_id_editar').innerText = 'Próximo: #' + String(proximoNum).padStart(2, '0');
-            document.getElementById('badge_categoria_editar').innerText = cat.toUpperCase();
+            document.getElementById('badge_id_editar').innerText = 'Próximo: #' + String(proximoNumeroGeral).padStart(2, '0');
             document.getElementById('edit_titulo').value = titulo; document.getElementById('edit_valor').value = valor; document.getElementById('edit_qtd').value = qtd;
 
             const pImg = document.getElementById('preview-img'); const pImg2 = document.getElementById('preview-img2-edit'); const pVid = document.getElementById('preview-vid');
-            pImg.innerHTML = img ? `<div id="box-img-atual" style="text-align:center;"><img src="../assets/uploads/${img}" class="thumb" onclick="verMidia('../assets/uploads/${img}', 'img')"><br><span onclick="removerMidia('imagem')" class="btn-remove-media">🗑️ APAGAR FOTO 1</span></div>` : '';
-            pImg2.innerHTML = img2 ? `<div id="box-img2-atual" style="text-align:center;"><img src="../assets/uploads/${img2}" class="thumb" onclick="verMidia('../assets/uploads/${img2}', 'img')"><br><span onclick="removerMidia('imagem2')" class="btn-remove-media">🗑️ APAGAR FOTO 2</span></div>` : '';
-            pVid.innerHTML = vid ? `<div id="box-vid-atual" style="text-align:center;"><div class="thumb vid-thumb" onclick="verMidia('../assets/uploads/${vid}', 'vid')">🎥 VÍDEO ATUAL</div><br><span onclick="removerMidia('video')" class="btn-remove-media">🗑️ APAGAR VÍDEO</span></div>` : '';
-            // Limpa os resíduos (fantasmas) do card anterior
+            pImg.innerHTML = img ? `<div id="box-img-atual" style="text-align:center;"><img src="assets/uploads/${img}" class="thumb" onclick="verMidia('assets/uploads/${img}', 'img')"><br><span onclick="removerMidia('imagem')" class="btn-remove-media">🗑️ APAGAR FOTO 1</span></div>` : '';
+            pImg2.innerHTML = img2 ? `<div id="box-img2-atual" style="text-align:center;"><img src="assets/uploads/${img2}" class="thumb" onclick="verMidia('assets/uploads/${img2}', 'img')"><br><span onclick="removerMidia('imagem2')" class="btn-remove-media">🗑️ APAGAR FOTO 2</span></div>` : '';
+            pVid.innerHTML = vid ? `<div id="box-vid-atual" style="text-align:center;"><div class="thumb vid-thumb" onclick="verMidia('assets/uploads/${vid}', 'vid')">🎥 VÍDEO ATUAL</div><br><span onclick="removerMidia('video')" class="btn-remove-media">🗑️ APAGAR VÍDEO</span></div>` : '';
+
             document.getElementById('edit_premios_container').innerHTML = '';
             document.getElementById('input_img_edit').value = '';
             document.getElementById('input_img2_edit').value = '';
@@ -688,21 +593,17 @@ $historicoPremios = array_slice(array_keys($freqPremios), 0, 50);
 
         function fecharModal(id) { document.getElementById(id).classList.remove('visivel'); }
 
-        function ativarSorteio(cat, id) {
+        function ativarSorteio(id) {
             if (confirm(document.querySelector('.card-sorteio.ativo') ? 'Colocar este sorteio na FILA DE ESPERA?' : 'Deseja iniciar este sorteio AGORA?')) {
-                document.getElementById('ativar_cat').value = cat; document.getElementById('ativar_id').value = id; document.getElementById('formAtivar').submit();
+                document.getElementById('ativar_id').value = id; document.getElementById('formAtivar').submit();
             }
         }
 
-        function excluirSorteio(id, cat) {
+        function excluirSorteio(id) {
             if (confirm('🗑️ Deseja excluir/tirar da fila este cartão?')) {
-                document.getElementById('excluir_id').value = id; document.getElementById('excluir_cat').value = cat; document.getElementById('formExcluir').submit();
+                document.getElementById('excluir_id').value = id; document.getElementById('formExcluir').submit();
             }
         }
-
-        window.addEventListener('load', () => {
-            abrirAba(categoriaAtualGlobal);
-        });
 
         function calcularTotal(modo) {
             let vStr = (modo === 'novo' ? document.getElementById('valor_novo') : document.getElementById('edit_valor')).value.replace(/\./g, '').replace(',', '.');

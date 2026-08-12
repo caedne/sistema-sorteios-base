@@ -445,3 +445,79 @@
         margin-right: 10px;
     }
 }
+/* --- CARD ÚNICO OCUPANDO A TELA INTEIRA --- */
+.dashboard-body.card-unico-central {
+    display: flex;
+    justify-content: stretch;
+    width: 100%;
+    max-width: 100%; /* Remove qualquer limite de largura */
+    margin: 0 auto;
+}
+
+.dashboard-body.card-unico-central .card-dashboard {
+    width: 100%;
+    max-width: 100%;
+}
+/* --- FAZ O CARD OCUPAR A TELA INTEIRA (LARGURA E ALTURA) --- */
+html, body {
+    height: 100%;
+    margin: 0;
+}
+
+.layout-sistema {
+    min-height: 100vh;
+    display: flex;
+}
+
+.conteudo-principal {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+.dashboard-body.card-unico-central {
+    display: flex;
+    flex: 1; /* Faz o container crescer ocupando todo o espaço para baixo */
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.dashboard-body.card-unico-central .card-dashboard {
+    width: 100%;
+    max-width: 100%;
+    flex: 1; /* Estica o card de ponta a ponta na vertical */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Garante que o miolo do card vazio ou com números também espalhe o espaço interno */
+.card-vazio {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+/* --- EXPANDIR OS NÚMEROS VERTICALMENTE NO CARD ÚNICO --- */
+.dashboard-body.card-unico-central .card-dashboard {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Faz o grid de números ocupar e distribuir todo o espaço vertical disponível */
+.dashboard-body.card-unico-central .grid-numeros-dashboard {
+    flex: 1; /* Cresce preenchendo o espaço para baixo */
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(5, 1fr); /* Divide as 5 linhas de números igualmente na altura */
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+/* Força cada caixinha de número a assumir 100% da altura da linha do grid */
+.dashboard-body.card-unico-central .box-numero {
+    height: 100% !important;
+    min-height: unset !important;
+    font-size: 22px; /* Aumenta um pouco o número para ficar proporcional */
+}

@@ -11,7 +11,6 @@ if (!isset($_SESSION['admin_logado']) || $_SESSION['admin_logado'] !== true) {
     exit;
 }
 include 'db.php';
-session_start();
 
 // Função para formatar telefone
 function formatarTelefone($telefone)
@@ -46,7 +45,6 @@ $q_sorteios = $conn->query("
     JOIN sorteios s ON gp.sorteio_id = s.id
     WHERE MONTH(gp.data_ganho) = '$mes_atual' 
     AND YEAR(gp.data_ganho) = '$ano_atual'
-    AND s.categoria IN ('carnes', 'bebidas')
 ");
 $stats_sorteios = $q_sorteios ? $q_sorteios->fetch_assoc()['total'] : 0;
 
@@ -56,7 +54,6 @@ $q_premios = $conn->query("
     JOIN sorteios s ON gp.sorteio_id = s.id
     WHERE MONTH(gp.data_ganho) = '$mes_atual' 
     AND YEAR(gp.data_ganho) = '$ano_atual'
-    AND s.categoria IN ('carnes', 'bebidas')
 ");
 $stats_premios = $q_premios ? $q_premios->fetch_assoc()['total'] : 0;
 
@@ -113,10 +110,10 @@ $result = $conn->query($sql);
 
 <head>
     <meta charset="UTF-8">
-    <title>Agenda de Clientes | D'KING</title>
-    <link rel="stylesheet" href="../assets/css/global.css">
-    <link rel="stylesheet" href="../assets/css/sidebar.css">
-    <link rel="stylesheet" href="../assets/css/agenda.css">
+    <title>Agenda de Clientes </title>
+    <link rel="stylesheet" href="assets/css/global.css">
+    <link rel="stylesheet" href="assets/css/sidebar.css">
+    <link rel="stylesheet" href="assets/css/agenda.css">
     <style>
         .btn-novo-topo {
             background-color: #22c55e;
@@ -236,8 +233,7 @@ $result = $conn->query($sql);
 
 <body>
     <div class="layout-sistema">
-        <aside class="sidebar"><?php include '../componentes/sidebar.php'; ?></aside>
-
+        <aside class="sidebar"><?php include 'componentes/sidebar.php'; ?></aside>
         <main class="conteudo-principal">
             <div class="container">
                 <div class="header">

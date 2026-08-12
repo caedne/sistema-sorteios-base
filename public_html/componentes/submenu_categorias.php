@@ -1,84 +1,81 @@
 <?php
 /**
- * SUBMENU UNIVERSAL - COMPONENTE
- * Lógica unificada para Selecionar Jogo, Jogos Ativos e Histórico.
+ * SUBMENU UNIVERSAL - COMPONENTE (DINÂMICO)
+ * Puxa as categorias diretamente do banco de dados do cliente.
  */
 
 // 1. DETECÇÃO INTELIGENTE DA PÁGINA
 $paginaAtual = basename($_SERVER['PHP_SELF']);
-
-// Define qual parâmetro a URL usa (tab para histórico/retirada, cat para os outros)
 $parametroUrl = ($paginaAtual == 'historico.php' || $paginaAtual == 'retirada.php') ? 'tab' : 'cat';
 
-// 2. DETECÇÃO DA CATEGORIA ATIVA
+// 2. BUSCA AS CATEGORIAS DIRETAMENTE NO BANCO DO CLIENTE
+$categoriasDisponiveis = [];
+$res_cat = $conn->query("SELECT categoria FROM contador_categorias ORDER BY id ASC");
+if ($res_cat && $res_cat->num_rows > 0) {
+    while ($row = $res_cat->fetch_assoc()) {
+        $categoriasDisponiveis[] = $row['categoria'];
+    }
+}
+
+// Se por acaso a tabela estiver vazia, define um padrão de segurança
+if (empty($categoriasDisponiveis)) {
+    $categoriasDisponiveis = ['carnes'];
+}
+
+// 3. DETECÇÃO DA CATEGORIA ATIVA
 if (!isset($abaAtiva)) {
-    if (isset($_GET[$parametroUrl])) {
+    if (isset($_GET[$parametroUrl]) && in_array($_GET[$parametroUrl], $categoriasDisponiveis)) {
         $abaAtiva = $_GET[$parametroUrl];
     } else {
-        $abaAtiva = 'carnes'; // Padrão se não tiver nada
+        $abaAtiva = $categoriasDisponiveis[0]; // Padrão é a primeira categoria cadastrada
     }
 }
 
-// CORREÇÃO AQUI: Força PLURAL (testes) em vez de singular
-if ($abaAtiva == 'teste') $abaAtiva = 'testes'; 
+// 4. REGRA DE OURO: SÓ EXIBE SE HOUVER MAIS DE 1 CATEGORIA
+if (count($categoriasDisponiveis) > 1) {
+    ?>
 
-// Validação atualizada para aceitar 'testes'
-if (!in_array($abaAtiva, ['carnes', 'bebidas', 'testes'])) {
-    $abaAtiva = 'carnes';
-}
-?>
+    <link rel="stylesheet" href="../assets/css/submenu.css?v=<?php echo time(); ?>">
 
-<link rel="stylesheet" href="../assets/css/submenu.css?v=<?php echo time(); ?>">
+    <div class="cabecalho-abas">
+        <div class="botoes-categoria">
 
-<div class="cabecalho-abas">
-    <div class="botoes-categoria">
-        
-        <button class="btn-capsula <?php echo ($abaAtiva == 'carnes') ? 'ativo' : ''; ?>" 
-                data-cat="carnes"
-                onclick="navegarPara('carnes')">
-            <span>🍖</span> CARNES
-        </button>
-        
-        <button class="btn-capsula <?php echo ($abaAtiva == 'bebidas') ? 'ativo' : ''; ?>" 
-                data-cat="bebidas"
-                onclick="navegarPara('bebidas')">
-            <span>🍻</span> BEBIDAS
-        </button>
-        
-        <button class="btn-capsula <?php echo ($abaAtiva == 'testes') ? 'ativo' : ''; ?>" 
-                data-cat="testes"
-                onclick="navegarPara('testes')">
-            <span>🚀</span> TESTES
-        </button>
+            <?php foreach ($categoriasDisponiveis as $cat): ?>
+                <button class="btn-capsula <?php echo ($abaAtiva == $cat) ? 'ativo' : ''; ?>" data-cat="<?php echo $cat; ?>"
+                    onclick="navegarPara('<?php echo $cat; ?>')">
+                    <span>⚡</span> <?php echo strtoupper($cat); ?>
+                </button>
+            <?php endforeach; ?>
 
+        </div>
     </div>
-</div>
 
-<script>
-// Passa variáveis do PHP para o JS
-const PARAM_URL_SUBMENU = '<?php echo $parametroUrl; ?>';
+    <script>
+        // Passa variáveis do PHP para o JS
+        const PARAM_URL_SUBMENU = '<?php echo $parametroUrl; ?>';
 
-function navegarPara(categoria) {
-    // 1. Efeito Visual Imediato (Troca a classe .ativo)
-    document.querySelectorAll('.btn-capsula').forEach(btn => btn.classList.remove('ativo'));
-    const btnClicado = document.querySelector(`.btn-capsula[data-cat="${categoria}"]`);
-    if(btnClicado) btnClicado.classList.add('ativo');
+        function navegarPara(categoria) {
+            // 1. Efeito Visual Imediato
+            document.querySelectorAll('.btn-capsula').forEach(btn => btn.classList.remove('ativo'));
+            const btnClicado = document.querySelector(`.btn-capsula[data-cat="${categoria}"]`);
+            if (btnClicado) btnClicado.classList.add('ativo');
 
-    // 2. Verifica se existe a função AJAX (exclusiva da página Selecionar Jogo)
-    if (typeof abrirAba === 'function') {
-        // Modo Rápido (Sem recarregar) - Vai enviar 'testes' agora
-        abrirAba(categoria); 
-    } else {
-        // Modo Padrão (Recarrega a página - Jogos Ativos/Histórico)
-        const url = new URL(window.location.href);
-        url.searchParams.set(PARAM_URL_SUBMENU, categoria);
-        
-        // Se tiver paginação, volta para a página 1
-        if (url.searchParams.has('p')) {
-            url.searchParams.set('p', '1');
+            // 2. Verifica se existe a função AJAX
+            if (typeof abrirAba === 'function') {
+                abrirAba(categoria);
+            } else {
+                const url = new URL(window.location.href);
+                url.searchParams.set(PARAM_URL_SUBMENU, categoria);
+
+                if (url.searchParams.has('p')) {
+                    url.searchParams.set('p', '1');
+                }
+
+                window.location.href = url.toString();
+            }
         }
-        
-        window.location.href = url.toString();
-    }
-}
-</script>
+    </script>
+
+<?php
+} // Fim do if (count > 1) 
+?>
