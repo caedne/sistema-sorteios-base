@@ -12,6 +12,48 @@ if (!isset($_SESSION['admin_logado']) || $_SESSION['admin_logado'] !== true) {
 }
 include 'db.php';
 
+
+// ==========================================
+// COMUNICAÇÃO COM O ROBÔ
+// ==========================================
+if (isset($_POST['acao_robo'])) {
+    $acao = $_POST['acao_robo'];
+    $id = intval($_POST['sorteio_id']);
+
+    $url = "http://localhost:3000/api/reenviar-lista";
+    if ($acao === 'alerta') {
+        $url = "http://localhost:3000/api/enviar-alerta-restantes";
+    } elseif ($acao === 'chamar_todos') {
+        $url = "http://localhost:3000/api/chamar-todos"; // Conecta o chamar todos no robô
+    }
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    // Enviamos a categoria "geral" para o robô não se perder
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['sorteio_id' => $id, 'categoria' => 'geral']));
+    $res = curl_exec($ch);
+    curl_close($ch);
+
+    if (!$res)
+        $res = json_encode(['success' => false, 'error' => 'O Robô (Node.js) não está respondendo.']);
+
+    ob_clean(); // <-- ISSO RESOLVE O "ERRO DE CONEXÃO" DOS BOTÕES!
+    header('Content-Type: application/json');
+    echo $res;
+    exit;
+}
+// ==========================================
+// MARCAR TUDO PAGO MANUALMENTE
+// ==========================================
+if (isset($_POST['acao_tudo_pago']) && isset($_POST['id_tudo_pago'])) {
+    $id = intval($_POST['id_tudo_pago']);
+    $conn->query("UPDATE vendas SET status_venda = 'pago', data_reserva = NOW() WHERE sorteio_id = $id AND status_venda != 'pago'");
+    header("Location: index.php");
+    exit;
+}
+
 // =======================================================
 // LÓGICA PARA MUDAR A SENHA POR DENTRO DO SISTEMA
 // =======================================================
@@ -30,9 +72,8 @@ if (isset($_POST['acao_mudar_senha_logado'])) {
         }
     }
 }
-// =======================================================
 
-// Lógica de Cancelamento com Estorno Automático e Trava
+// Lógica de Cancelamento de Sorteio
 if (isset($_POST['acao_cancelar']) && isset($_POST['id_cancelar'])) {
     $id = intval($_POST['id_cancelar']);
 
@@ -47,10 +88,9 @@ if (isset($_POST['acao_cancelar']) && isset($_POST['id_cancelar'])) {
     exit;
 }
 
-// BUSCA O SORTEIO ATIVO ATUAL (SEM FILTRO DE CARNES/BEBIDAS)
 function getSorteioAtivo($conn)
 {
-    $res = $conn->query("SELECT * FROM sorteios WHERE status IN ('ativo', 'aguardando_manual') ORDER BY id DESC LIMIT 1");
+    $res = $conn->query("SELECT * FROM sorteios WHERE status IN ('ativo', 'aguardando_manual', 'gravar_video', 'gravando') ORDER BY id DESC LIMIT 1");
     return ($res && $res->num_rows > 0) ? $res->fetch_assoc() : null;
 }
 
@@ -86,11 +126,15 @@ function getVendasMap($conn, $id)
 $sorteio = getSorteioAtivo($conn);
 $vendas_map = getVendasMap($conn, $sorteio['id'] ?? null);
 
+$vendas_pagas_modal = [];
 $pagos_total = 0;
-foreach ($vendas_map as $v) {
-    if ($v['status'] == 'pago')
+foreach ($vendas_map as $numero => $dados_v) {
+    if ($dados_v['status'] == 'pago') {
         $pagos_total++;
+        $vendas_pagas_modal[] = ['numero' => $numero, 'nome' => $dados_v['nome']];
+    }
 }
+$qtd = $sorteio['qtd_numeros'] ?? 25;
 ?>
 <!DOCTYPE html>
 <html lang="pt-br">
@@ -101,43 +145,7 @@ foreach ($vendas_map as $v) {
     <link rel="stylesheet" href="assets/css/global.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="assets/css/sidebar.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="assets/css/index.css?v=<?php echo time(); ?>">
-
-    <script>
-        function chamarTodos(idSorteio) {
-            if (!confirm('⚠️ ATENÇÃO: Marcar todos os membros no WhatsApp?')) return;
-
-            let btn = event.target;
-            if (btn.tagName !== 'BUTTON') btn = btn.closest('button');
-
-            let txtOriginal = btn.innerText;
-            btn.innerText = "⏳ Enviando...";
-            btn.disabled = true;
-
-            let fd = new FormData();
-            fd.append('id', idSorteio);
-
-            fetch('chamar_todos.php', {
-                method: 'POST',
-                body: fd
-            })
-                .then(r => r.json())
-                .then(d => {
-                    if (d.status === 'sucesso' || d.success === true) {
-                        alert("✅ Pronto! O robô marcou " + (d.qtd || "todos") + " pessoas no grupo.");
-                    } else {
-                        alert("❌ Erro: " + (d.erro || d.message || "O robô não respondeu."));
-                    }
-                })
-                .catch(e => {
-                    console.error(e);
-                    alert("Erro de conexão.");
-                })
-                .finally(() => {
-                    btn.innerText = txtOriginal;
-                    btn.disabled = false;
-                });
-        }
-    </script>
+    <link rel="stylesheet" href="assets/css/jogos.css?v=<?php echo time(); ?>">
 </head>
 
 <body>
@@ -155,8 +163,6 @@ foreach ($vendas_map as $v) {
 
             <div class="dashboard-body card-unico-central">
                 <?php
-                $total_vendidos = count($vendas_map);
-                $qtd = $sorteio['qtd_numeros'] ?? 25;
                 $classeGrid = "grid-numeros-dashboard grid-" . $qtd;
 
                 $numVisual = "01";
@@ -204,13 +210,56 @@ foreach ($vendas_map as $v) {
                         include 'componentes/componentes_status.php';
                         ?>
 
-                        <div class="area-botoes-acao">
-                            <?php
-                            $vendas = $pagos_total;
-                            include 'componentes/componente_botao.php';
-                            include 'componentes/componente_botao_sortear_manual.php';
-                            include 'componentes/componente_botao_cancelar.php';
-                            ?>
+                        <div class="botoes-acao-row" style="margin-top: 20px;">
+                            <form method="POST" style="flex: 1 1 auto; display: flex;">
+                                <input type="hidden" name="acao_tudo_pago" value="1">
+                                <input type="hidden" name="id_tudo_pago" value="<?php echo $sorteio['id']; ?>">
+                                <button type="submit" class="btn-acao-custom btn-tudo-pago"
+                                    style="cursor: pointer; width: 100%;"
+                                    onclick="return confirm('⚠️ ATENÇÃO: Deseja marcar TODOS os números reservados desta rifa como PAGOS?');">
+                                    TUDO PAGO
+                                </button>
+                            </form>
+
+                            <button onclick="acionarRobo(<?php echo $sorteio['id']; ?>, 'chamar_todos')"
+                                class="btn-acao-custom btn-chamar">
+                                📢 CHAMAR TODOS NO GRUPO
+                            </button>
+
+                            <button onclick="acionarRobo(<?php echo $sorteio['id']; ?>, 'reenviar')"
+                                class="btn-acao-custom btn-reenviar">
+                                🔄 ENVIAR LISTA
+                            </button>
+
+                            <button onclick="acionarRobo(<?php echo $sorteio['id']; ?>, 'alerta')"
+                                class="btn-acao-custom btn-alerta">
+                                ⚠️ FALTAM X NÚMEROS
+                            </button>
+
+                            <!-- TRAVA ORIGINAL RESTAURADA: Só aparece se pagos_total >= qtd -->
+                            <?php if ($pagos_total >= $qtd): ?>
+                                <?php
+                                $payload = base64_encode(json_encode([
+                                    'id' => $sorteio['id'],
+                                    'cat' => 'geral',
+                                    'premios' => explode('|||', $sorteio['premios']),
+                                    'numeros' => $vendas_pagas_modal
+                                ]));
+                                ?>
+                                <button onclick="abrirModalSorteio('<?php echo $payload; ?>')"
+                                    class="btn-acao-custom btn-sortear-manual">
+                                    🎰 SORTEAR
+                                </button>
+                            <?php endif; ?>
+
+                            <form method="POST" class="form-cancelar" style="flex: 1 1 auto; display: flex;">
+                                <input type="hidden" name="acao_cancelar" value="1">
+                                <input type="hidden" name="id_cancelar" value="<?php echo $sorteio['id']; ?>">
+                                <button type="submit" class="btn-acao-custom btn-cancelar-outline"
+                                    onclick="return confirm('⚠️ ATENÇÃO: Deseja CANCELAR este sorteio?\n\nO robô irá devolver automaticamente o dinheiro para a carteira de todos os clientes pagos.');">
+                                    CANCELAR
+                                </button>
+                            </form>
                         </div>
 
                     <?php else: ?>
@@ -277,73 +326,106 @@ foreach ($vendas_map as $v) {
         function fecharModalSenhaLogado() {
             document.getElementById('modalSenhaLogado').style.display = 'none';
         }
-        // ----------------------------------
+      
+        function acionarRobo(idSorteio, acao) {
+            let btn = event.target.closest('button');
+            let txtOriginal = btn.innerHTML;
+            btn.innerHTML = "⏳...";
+            btn.disabled = true;
 
-        function abrirModalSorteio(sorteioId, categoria, premios, numeros) {
+            let fd = new FormData();
+            fd.append('acao_robo', acao);
+            fd.append('sorteio_id', idSorteio);
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: fd
+            })
+                .then(async r => {
+                    if (!r.ok) throw new Error("Erro HTTP");
+                    const text = await r.text();
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        throw new Error("Resposta inválida do servidor.");
+                    }
+                })
+                .then(d => {
+                    if (d.success || d.status === 'sucesso' || d.message) alert("✅ Sucesso: Comando enviado!");
+                    else alert("❌ Erro: " + (d.error || "Erro no robô"));
+                })
+                .catch(e => {
+                    console.error(e);
+                    alert("❌ Ocorreu um erro ao comunicar com o robô.");
+                })
+                .finally(() => {
+                    btn.innerHTML = txtOriginal;
+                    btn.disabled = false;
+                });
+        }
+
+        function abrirModalSorteio(base64) {
             const modal = document.getElementById('modalSorteio');
-            if (!modal) {
-                console.error('Modal não existe!');
-                return;
-            }
+            try {
+                const dados = JSON.parse(decodeURIComponent(escape(window.atob(base64))));
 
-            modal.innerHTML = `
-        <div style="background:white; border-radius:20px; width:90%; max-width:600px; max-height:80vh; overflow-y:auto;">
-            <div style="background:#1e293b; color:#facc15; padding:20px; border-radius:20px 20px 0 0; display:flex; justify-content:space-between;">
-                <h2 style="margin:0;">🎰 SORTEAR MANUALMENTE</h2>
-                <button onclick="fecharModal()" style="background:none; border:none; color:white; font-size:24px; cursor:pointer;">✖</button>
-            </div>
-            <form id="formSorteio" method="POST" action="processar_sorteio_manual.php" style="padding:30px;">
-                <input type="hidden" name="sorteio_id" value="${sorteioId}">
-                <input type="hidden" name="categoria" value="${categoria}">
-                <div id="campos-premios"></div>
-                <div style="display:flex; gap:10px; justify-content:flex-end; padding-top:20px; border-top:2px solid #e2e8f0;">
-                    <button type="button" onclick="fecharModal()" style="padding:12px 30px; border-radius:8px; font-weight:900; background:white; border:2px solid #ef4444; color:#ef4444; cursor:pointer;">CANCELAR</button>
-                    <button type="submit" style="padding:12px 30px; border-radius:8px; font-weight:900; background:#22c55e; color:white; border:none; cursor:pointer;">✅ SALVAR</button>
+                let htmlPremios = '';
+                const icones = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣'];
+                dados.premios.forEach((p, i) => {
+                    let options = dados.numeros.map(n => `<option value="${n.numero}" data-nome="${n.nome}">${n.numero} - ${n.nome}</option>`).join('');
+                    htmlPremios += `
+                <div class="premio-item-box" style="margin-bottom:20px; padding:20px; background:#f8fafc; border-radius:10px; border-left:4px solid #22c55e;">
+                    <h4 style="margin:0 0 15px 0;">${icones[i] || (i + 1) + 'º'} Lugar - ${p}</h4>
+                    <select name="numero_${i}" required onchange="document.getElementById('nome_${i}').value=this.options[this.selectedIndex].getAttribute('data-nome')" style="width:100%; padding:12px; border:2px solid #cbd5e1; border-radius:8px; font-weight:600; margin-bottom:10px;">
+                        <option value="">Selecione</option>
+                        ${options}
+                    </select>
+                    <input type="text" name="nome_${i}" id="nome_${i}" readonly style="width:100%; padding:12px; background:#e2e8f0; border:2px solid #cbd5e1; border-radius:8px;">
+                    <input type="hidden" name="premio_${i}" value="${p}">
+                </div>`;
+                });
+
+                modal.innerHTML = `
+            <div style="background:white; border-radius:20px; width:90%; max-width:600px; max-height:80vh; overflow-y:auto; margin: auto; position: relative; top: 50%; transform: translateY(-50%);">
+                <div style="background:#1e293b; color:#facc15; padding:20px; border-radius:20px 20px 0 0; display:flex; justify-content:space-between;">
+                    <h2 style="margin:0;">🎰 SORTEAR MANUALMENTE</h2>
+                    <button onclick="fecharModal()" style="background:none; border:none; color:white; font-size:24px; cursor:pointer;">✖</button>
                 </div>
-            </form>
-        </div>
-    `;
+                <form id="formSorteio" method="POST" action="processar_sorteio_manual.php" style="padding:30px;">
+                    <input type="hidden" name="sorteio_id" value="${dados.id}">
+                    <input type="hidden" name="categoria" value="${dados.cat}">
+                    <div id="campos-premios">${htmlPremios}</div>
+                    <div style="display:flex; gap:10px; justify-content:flex-end; padding-top:20px; border-top:2px solid #e2e8f0;">
+                        <button type="button" onclick="fecharModal()" style="padding:12px 30px; border-radius:8px; font-weight:900; background:white; border:2px solid #ef4444; color:#ef4444; cursor:pointer;">CANCELAR</button>
+                        <button type="submit" style="padding:12px 30px; border-radius:8px; font-weight:900; background:#22c55e; color:white; border:none; cursor:pointer;">✅ SALVAR</button>
+                    </div>
+                </form>
+            </div>
+            `;
 
-            const container = document.getElementById('campos-premios');
-            const listaPremios = premios.split('|||');
-            const icones = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
-
-            listaPremios.forEach((premio, index) => {
-                const div = document.createElement('div');
-                div.style.cssText = 'margin-bottom:20px; padding:20px; background:#f8fafc; border-radius:10px; border-left:4px solid #22c55e;';
-                div.innerHTML = `
-            <h4 style="margin:0 0 15px 0;">${icones[index]} ${index + 1}º Lugar - ${premio}</h4>
-            <select name="numero_${index}" required onchange="document.getElementById('nome_${index}').value=this.options[this.selectedIndex].getAttribute('data-nome')" style="width:100%; padding:12px; border:2px solid #cbd5e1; border-radius:8px; font-weight:600; margin-bottom:10px;">
-                <option value="">Selecione</option>
-                ${numeros.map(n => `<option value="${n.numero}" data-nome="${n.nome}">${n.numero} - ${n.nome}</option>`).join('')}
-            </select>
-            <input type="text" name="nome_${index}" id="nome_${index}" readonly style="width:100%; padding:12px; background:#e2e8f0; border:2px solid #cbd5e1; border-radius:8px;">
-            <input type="hidden" name="premio_${index}" value="${premio}">
-        `;
-                container.appendChild(div);
-            });
-
-            document.getElementById('formSorteio').addEventListener('submit', function (e) {
-                e.preventDefault();
-                const nums = [];
-                const selects = this.querySelectorAll('select[name^="numero_"]');
-                for (let s of selects) {
-                    if (!s.value) {
-                        alert('⚠️ Preencha todos!');
-                        return;
+                document.getElementById('formSorteio').addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    const nums = [];
+                    const selects = this.querySelectorAll('select[name^="numero_"]');
+                    for (let s of selects) {
+                        if (!s.value) {
+                            alert('⚠️ Preencha todos!');
+                            return;
+                        }
+                        if (nums.includes(s.value)) {
+                            alert('⚠️ Duplicado!');
+                            return;
+                        }
+                        nums.push(s.value);
                     }
-                    if (nums.includes(s.value)) {
-                        alert('⚠️ Duplicado!');
-                        return;
-                    }
-                    nums.push(s.value);
-                }
-                if (confirm('✅ Confirma?')) this.submit();
-            });
+                    if (confirm('✅ Confirma o Sorteio?')) this.submit();
+                });
 
-            modal.style.display = 'flex';
-            modal.style.alignItems = 'center';
-            modal.style.justifyContent = 'center';
+                modal.style.display = 'block';
+            } catch (e) {
+                console.error("Erro:", e);
+                alert("Nenhum número pago disponível para sortear.");
+            }
         }
 
         function fecharModal() {
@@ -356,23 +438,6 @@ foreach ($vendas_map as $v) {
             alert('✅ Sorteio realizado!\n📤 Mensagens enviadas!');
             window.history.replaceState({}, '', window.location.pathname);
         }
-    </script>
-    <script>
-        // SISTEMA DE RECARREGAMENTO INTELIGENTE (ANTI-TELA VELHA) - 5 MINUTOS
-        let ultimaVezNaTela = Date.now();
-
-        document.addEventListener("visibilitychange", function () {
-            if (document.visibilityState === 'visible') {
-                let agora = Date.now();
-                let tempoFora = agora - ultimaVezNaTela;
-
-                if (tempoFora > 300000) {
-                    window.location.reload();
-                }
-            } else {
-                ultimaVezNaTela = Date.now();
-            }
-        });
     </script>
 </body>
 

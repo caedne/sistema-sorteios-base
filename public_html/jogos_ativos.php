@@ -13,7 +13,7 @@ if (!isset($_SESSION['admin_logado']) || $_SESSION['admin_logado'] !== true) {
 include 'db.php';
 
 // ==========================================
-// AÇÕES INDIVIDUAIS DO QUADRADO
+// AÇÕES INDIVIDUAIS DO QUADRADO E ESTORNO
 // ==========================================
 if (isset($_POST['acao_individual'])) {
     $acao = $_POST['acao_individual'];
@@ -43,10 +43,12 @@ if (isset($_POST['acao_individual'])) {
         $msg = "✅ *PAGAMENTO CONFIRMADO MANUALMENTE*\n\n🎁 Rifa: {$s_dados['titulo']} #{$s_dados['numero_visual']}\n🎫 Número: $numero\n🍀 Boa sorte!";
         enviarMsgBot($telefone, $msg);
 
+        ob_clean(); // <-- ADICIONE ISSO AQUI
         echo json_encode(['success' => true]);
         exit;
     }
 
+    // LÓGICA DE CANCELAMENTO / ESTORNO COM CRIAÇÃO AUTOMÁTICA DE CARTEIRA
     if ($acao === 'cancelar_numero') {
         $v_q = $conn->query("SELECT status_venda, cliente_id, id_whatsapp FROM vendas WHERE sorteio_id = $sorteio_id AND numero_escolhido = $numero");
         if ($v_q->num_rows > 0) {
@@ -66,7 +68,7 @@ if (isset($_POST['acao_individual'])) {
                 }
 
                 if ($cId) {
-                    $cart_q = $conn->query("SELECT saldo FROM carteiras WHERE cliente_id = $cId");
+                    $cart_q = $conn->query("SELECT id FROM carteiras WHERE cliente_id = $cId");
                     if ($cart_q->num_rows > 0) {
                         $conn->query("UPDATE carteiras SET saldo = saldo + $valor WHERE cliente_id = $cId");
                     } else {
@@ -85,6 +87,7 @@ if (isset($_POST['acao_individual'])) {
             $conn->query("DELETE FROM vendas WHERE sorteio_id = $sorteio_id AND numero_escolhido = $numero");
             enviarMsgBot($telefone, $msg);
         }
+        ob_clean(); // <-- ADICIONE ISSO AQUI TAMBÉM
         echo json_encode(['success' => true]);
         exit;
     }
@@ -93,28 +96,39 @@ if (isset($_POST['acao_individual'])) {
 // ==========================================
 // COMUNICAÇÃO COM O ROBÔ
 // ==========================================
+// ==========================================
+// COMUNICAÇÃO COM O ROBÔ
+// ==========================================
 if (isset($_POST['acao_robo'])) {
     $acao = $_POST['acao_robo'];
     $id = intval($_POST['sorteio_id']);
 
     $url = "http://localhost:3000/api/reenviar-lista";
-    if ($acao === 'alerta')
+    if ($acao === 'alerta') {
         $url = "http://localhost:3000/api/enviar-alerta-restantes";
+    } elseif ($acao === 'chamar_todos') {
+        $url = "http://localhost:3000/api/chamar-todos"; // Conecta o chamar todos no robô
+    }
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['sorteio_id' => $id]));
+    // Enviamos a categoria "geral" para o robô não se perder
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['sorteio_id' => $id, 'categoria' => 'geral']));
     $res = curl_exec($ch);
     curl_close($ch);
 
+    if (!$res)
+        $res = json_encode(['success' => false, 'error' => 'O Robô (Node.js) não está respondendo.']);
+
+    ob_clean(); // <-- ISSO RESOLVE O "ERRO DE CONEXÃO" DOS BOTÕES!
     header('Content-Type: application/json');
     echo $res;
     exit;
 }
 
-// Lógica de Cancelamento
+// Lógica de Cancelamento de Sorteio
 if (isset($_POST['acao_cancelar']) && isset($_POST['id_cancelar'])) {
     $id = intval($_POST['id_cancelar']);
 
@@ -137,7 +151,6 @@ if (isset($_POST['acao_tudo_pago']) && isset($_POST['id_tudo_pago'])) {
     exit;
 }
 
-// Funções Auxiliares
 function renderizarListaPremios($stringPremios)
 {
     if (!$stringPremios)
@@ -265,7 +278,7 @@ $qtd = $sorteio['qtd_numeros'] ?? 25;
                                     </button>
                                 </form>
 
-                                <button onclick="chamarTodos(<?php echo $sorteio['id']; ?>)"
+                                <button onclick="acionarRobo(<?php echo $sorteio['id']; ?>, 'chamar_todos')"
                                     class="btn-acao-custom btn-chamar">
                                     📢 CHAMAR TODOS NO GRUPO
                                 </button>
@@ -280,6 +293,7 @@ $qtd = $sorteio['qtd_numeros'] ?? 25;
                                     ⚠️ FALTAM X NÚMEROS
                                 </button>
 
+                                <!-- TRAVA RESTAURADA: Sorteio só aparece se total_pagos >= qtd -->
                                 <?php if ($total_pagos >= $qtd): ?>
                                     <?php if ($sorteio['status'] === 'gravar_video' || $sorteio['status'] === 'gravando'): ?>
                                         <button disabled class="btn-acao-custom"
@@ -394,13 +408,11 @@ $qtd = $sorteio['qtd_numeros'] ?? 25;
         </div>
     </div>
 
-
     <script>
         function abrirOpcoesIndividuais(sorteio_id, numero, status, nome, telefone) {
             document.getElementById('ind_sorteio_id').value = sorteio_id;
             document.getElementById('ind_numero').value = numero;
             document.getElementById('ind_tel').value = telefone;
-
             document.getElementById('ind_num_display').innerText = numero;
             document.getElementById('ind_nome_display').innerText = nome;
             document.getElementById('ind_tel_display').innerText = telefone;
@@ -414,7 +426,6 @@ $qtd = $sorteio['qtd_numeros'] ?? 25;
 
             document.getElementById('boxMsgInd').style.display = 'none';
             document.getElementById('ind_texto_msg').value = '';
-
             document.getElementById('modalInd').style.display = 'flex';
         }
 
@@ -469,34 +480,6 @@ $qtd = $sorteio['qtd_numeros'] ?? 25;
                 });
         }
 
-        function chamarTodos(idSorteio) {
-            if (!confirm('⚠️ ATENÇÃO: Marcar todos os membros no WhatsApp?')) return;
-            let btn = event.target;
-            if (btn.tagName !== 'BUTTON') btn = btn.closest('button');
-            let txtOriginal = btn.innerText;
-            btn.innerText = "⏳ Enviando...";
-            btn.disabled = true;
-            let fd = new FormData();
-            fd.append('id', idSorteio);
-            fetch('../sistema_sorteios/chamar_todos.php', {
-                method: 'POST',
-                body: fd
-            })
-                .then(r => r.json())
-                .then(d => {
-                    if (d.status === 'sucesso' || d.success === true) alert("✅ Feito!");
-                    else alert("❌ Erro: " + (d.erro || "Sem resposta."));
-                })
-                .catch(e => {
-                    console.error(e);
-                    alert("Erro de conexão.");
-                })
-                .finally(() => {
-                    btn.innerText = txtOriginal;
-                    btn.disabled = false;
-                });
-        }
-
         function abrirModalSorteio(base64) {
             const modal = document.getElementById('modalSorteio');
             try {
@@ -536,6 +519,7 @@ $qtd = $sorteio['qtd_numeros'] ?? 25;
                 modal.style.display = 'flex';
             } catch (e) {
                 console.error("Erro:", e);
+                alert("Nenhum número pago disponível para sortear.");
             }
         }
 
@@ -587,11 +571,11 @@ $qtd = $sorteio['qtd_numeros'] ?? 25;
                     try {
                         return JSON.parse(text);
                     } catch (e) {
-                        throw new Error("Resposta inválida do servidor: " + text.substring(0, 50));
+                        throw new Error("Resposta inválida do servidor.");
                     }
                 })
                 .then(d => {
-                    if (d.success) alert("✅ Sucesso: O Robô enviou a mensagem!");
+                    if (d.success || d.status === 'sucesso' || d.message) alert("✅ Sucesso: Comando enviado!");
                     else alert("❌ Erro: " + (d.error || "Erro no robô"));
                 })
                 .catch(e => {

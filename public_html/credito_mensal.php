@@ -153,7 +153,7 @@ $result = $conn->query($sql);
                                             <?php endif; ?>
 
                                             <button class="btn-acao btn-excluir"
-                                                onclick="removerCredito(<?php echo $row['cliente_id']; ?>, '<?php echo addslashes($cliente['nome_fixo']); ?>')">
+                                                onclick="removerCredito(<?php echo $row['cliente_id']; ?>, '<?php echo addslashes($cliente['nome_fixo']); ?>', <?php echo $row['credito_usado']; ?>)">
                                                 🗑️
                                             </button>
                                         </td>
@@ -320,17 +320,25 @@ $result = $conn->query($sql);
             document.getElementById('modalAdicionar').style.display = 'none';
         }
 
-        function removerCredito(clienteId, nome) {
-            if (!confirm(`⚠️ REMOVER CRÉDITO MENSAL de "${nome}"?\n\nO saldo será mantido.`)) return;
+        function removerCredito(clienteId, nome, dividaAtual) {
+            if (dividaAtual > 0) {
+                const acao = confirm(`⚠️ ATENÇÃO: O cliente "${nome}" tem uma DÍVIDA de R$ ${dividaAtual.toFixed(2)}.\n\n[ OK ] = APAGAR MENSAL e ZERAR DÍVIDA.\n[ CANCELAR ] = Não apagar nada (Use o botão "Cobrar" na tabela para enviar a cobrança).`);
+                if (!acao) return; // Se clicou em cancelar, para tudo.
+                enviarRemocao(clienteId, true);
+            } else {
+                if (!confirm(`⚠️ REMOVER CRÉDITO MENSAL de "${nome}"?`)) return;
+                enviarRemocao(clienteId, false);
+            }
+        }
+
+        function enviarRemocao(clienteId, zerarDivida) {
             fetch('api_carteira.php?acao=remover_credito_completo', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: 'cliente_id=' + clienteId
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `cliente_id=${clienteId}&zerar_divida=${zerarDivida}`
             }).then(r => r.json()).then(d => {
                 if (d.success) {
-                    alert('✅ Removido!');
+                    alert('✅ Crédito mensal removido!');
                     location.reload();
                 } else alert('❌ Erro: ' + d.error);
             });

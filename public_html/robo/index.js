@@ -1,5 +1,4 @@
-require('dotenv').config();
-const qrcode = require('qrcode-terminal');
+require('dotenv').config({ path: '../.env' }); const qrcode = require('qrcode-terminal');
 const {
     default: makeWASocket,
     useMultiFileAuthState,
@@ -15,11 +14,8 @@ const axios = require('axios');
 const express = require('express');
 
 const BASE_PATH = __dirname + '/';
-
 const GRUPOS = {
-    '120363406517236188@g.us': 'testes',
-    '120363159570576952@g.us': 'carnes',
-    '120363207504856249@g.us': 'bebidas'
+    '120363430298778521@g.us': 'grupoSistema',
 };
 
 const pool = mysql.createPool({
@@ -33,7 +29,7 @@ const pool = mysql.createPool({
     queueLimit: 0
 });
 
-const MERCADOPAGO_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
+const MERCADOPAGO_ACCESS_TOKEN = "APP_USR-2726652376529353-081213-1dc88822422ca629c3906e6cb15f8247-607680485";
 const MERCADOPAGO_API_URL = 'https://api.mercadopago.com/v1/payments';
 
 global.sock = null;
@@ -114,12 +110,12 @@ async function enviarListaAtualizada(rifa, groupId) {
         const totalVendas = vendas.length;
         const numVisual = String(rifa.numero_visual || rifa.id).padStart(2, '0');
 
+        const nomeDaLojaStr = process.env.NOME_CLIENTE ? `Sorteios ${process.env.NOME_CLIENTE}` : 'Sorteios';
         let cabecalhos = [
-            `*${process.env.NOME_CLIENTE || 'SORTEIOS'}*\n 📢 *Sorteios Promocionais Diários*\n\n`,
-            `*${process.env.NOME_CLIENTE || 'SORTEIOS'}*\n 🏆 *Participe e concorra!*\n\n`,
-            `*${process.env.NOME_CLIENTE || 'SORTEIOS'}*\n ⭐ *Sua chance de ganhar!*\n\n`
+            `*${nomeDaLojaStr.toUpperCase()}*\n 📢 *Sorteios Promocionais Diários*\n\n`,
+            `*${nomeDaLojaStr.toUpperCase()}*\n 🏆 *Participe e concorra!*\n\n`,
+            `*${nomeDaLojaStr.toUpperCase()}*\n ⭐ *Sua chance de ganhar!*\n\n`
         ];
-
         const cabecalhoSorteado = cabecalhos[Math.floor(Math.random() * cabecalhos.length)];
 
         let msg = `${cabecalhoSorteado}` +
@@ -389,11 +385,12 @@ app.post('/api/enviar-resultado-manual', async (req, res) => {
         }
 
         const emojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-        let msgRes = `🏆 *RESULTADO OFICIAL - SORTEIO MANUAL*\n\n🎰 *${titulo}*\n\n`;
+        const nomeLoja = process.env.NOME_CLIENTE ? `Sorteios ${process.env.NOME_CLIENTE}` : 'Sorteios';
+        let msgRes = `*${nomeLoja.toUpperCase()}*\n🏆 *RESULTADO OFICIAL - SORTEIO MANUAL*\n\n🎰 *${titulo}*\n\n`;
         ganhadores.forEach((g, i) => {
             msgRes += `${emojis[i] || `${i + 1}º`} *${g.premio}*\n👤 ${g.nome} — *Nº ${g.numero}*\n\n`;
         });
-        msgRes += `_Retire seu prêmio em 48h no ${process.env.NOME_CLIENTE}_`;
+        msgRes += `_Retire seu prêmio em 48h no ${nomeLoja}_`;
         await global.sock.sendMessage(groupId, { text: msgRes });
 
         for (const [i, g] of ganhadores.entries()) {
@@ -418,7 +415,8 @@ app.post('/api/enviar-resultado-manual', async (req, res) => {
                     const dataFormatada = agora.toLocaleDateString('pt-BR');
                     const horaFormatada = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-                    const msgPrivada = `🎉 *PARABÉNS! VOCÊ GANHOU!*\n\n🎰 *Sorteio:* ${titulo}\n🏅 *Colocação:* ${emojis[i] || `${i + 1}º`} Lugar\n🎁 *Prêmio:* ${g.premio}\n🎟️ *Número:* ${g.numero}\n📅 *Data:* ${dataFormatada} às ${horaFormatada}\n\n⚠️ *Você tem 48hrs para retirar no ${process.env.NOME_CLIENTE}!*`;
+                    const nomeLojaPriv = process.env.NOME_CLIENTE ? `Sorteios ${process.env.NOME_CLIENTE}` : 'Sorteios';
+                    const msgPrivada = `*${nomeLojaPriv.toUpperCase()}*\n🎉 *PARABÉNS! VOCÊ GANHOU!*\n\n🎰 *Sorteio:* ${titulo}\n🏅 *Colocação:* ${emojis[i] || `${i + 1}º`} Lugar\n🎁 *Prêmio:* ${g.premio}\n🎟️ *Número:* ${g.numero}\n📅 *Data:* ${dataFormatada} às ${horaFormatada}\n\n⚠️ *Você tem 48hrs para retirar na ${nomeLojaPriv}!*`;
                     await global.sock.sendMessage(userJid, { text: msgPrivada });
                     await new Promise(r => setTimeout(r, 4500));
                 } catch (e) {
@@ -435,11 +433,12 @@ app.post('/api/enviar-resultado-manual', async (req, res) => {
 
 app.post('/api/chamar-todos', async (req, res) => {
     try {
-        const { categoria } = req.body;
-        const catNormalizada = categoria ? categoria.toLowerCase() : '';
-        const groupId = Object.keys(GRUPOS).find(key => GRUPOS[key] === catNormalizada);
-        if (!groupId || !global.sock) return res.status(400).json({ error: 'Grupo ou Robô offline' });
+        // FORÇA BUSCAR O GRUPO PRINCIPAL DO SISTEMA DIRETAMENTE
+        const groupId = Object.keys(GRUPOS).find(key => GRUPOS[key] === 'grupoSistema');
+        if (!groupId || !global.sock) return res.status(400).json({ error: 'Grupo não encontrado' });
+
         res.status(200).json({ success: true });
+
         setImmediate(async () => {
             try {
                 const metadata = await global.sock.groupMetadata(groupId);
@@ -494,8 +493,9 @@ app.post('/webhook/mercadopago', async (req, res) => {
                         if (clienteData.length > 0) {
                             let jidEnvio = clienteData[0].id_whatsapp;
                             jidEnvio = jidEnvio.length >= 14 ? `${jidEnvio}@lid` : `${jidEnvio}@s.whatsapp.net`;
+                            const nomeFatura = process.env.NOME_CLIENTE ? `SORTEIOS ${process.env.NOME_CLIENTE}` : 'SISTEMA DE SORTEIOS';
                             await global.sock.sendMessage(jidEnvio, {
-                                text: `✅ *FATURA PAGA COM SUCESSO!*\n\n💰 Valor Pago: R$ ${valor.toFixed(2).replace('.', ',')}\n💳 Seu limite disponível agora é: *R$ ${limiteDisponivel.toFixed(2).replace('.', ',')}*\n\nO seu crédito mensal na *${process.env.NOME_CLIENTE}* foi reestabelecido! 🍀`
+                                text: `*${nomeFatura.toUpperCase()}*\n✅ *FATURA PAGA COM SUCESSO!*\n\n💰 Valor Pago: R$ ${valor.toFixed(2).replace('.', ',')}\n💳 Seu limite disponível agora é: *R$ ${limiteDisponivel.toFixed(2).replace('.', ',')}*\n\nO seu crédito mensal na *${process.env.NOME_CLIENTE || 'Sorteios'}* foi reestabelecido! 🍀`
                             });
                         }
                         return res.status(200).send('OK');
@@ -517,8 +517,9 @@ app.post('/webhook/mercadopago', async (req, res) => {
                         if (clienteData.length > 0) {
                             let jidEnvio = clienteData[0].id_whatsapp;
                             jidEnvio = jidEnvio.length >= 14 ? `${jidEnvio}@lid` : `${jidEnvio}@s.whatsapp.net`;
+                            const nomeRecarga = process.env.NOME_CLIENTE ? `SORTEIOS ${process.env.NOME_CLIENTE}` : 'SISTEMA DE SORTEIOS';
                             await global.sock.sendMessage(jidEnvio, {
-                                text: `✅ *RECARGA APROVADA!*\n\n💰 Valor: R$ ${valor.toFixed(2).replace('.', ',')}\n💵 Seu saldo atual é: *R$ ${saldoNovo.toFixed(2).replace('.', ',')}*\n\nVocê já pode comprar seus números direto pelo saldo!`
+                                text: `*${nomeRecarga.toUpperCase()}*\n✅ *RECARGA APROVADA!*\n\n💰 Valor: R$ ${valor.toFixed(2).replace('.', ',')}\n💵 Seu saldo atual é: *R$ ${saldoNovo.toFixed(2).replace('.', ',')}*\n\nVocê já pode comprar seus números direto pelo saldo!`
                             });
                         }
                         return res.status(200).send('OK');
@@ -552,8 +553,10 @@ app.post('/webhook/mercadopago', async (req, res) => {
                                 const delayConf = Math.floor(Math.random() * 3000) + 2000;
                                 await new Promise(r => setTimeout(r, delayConf));
 
+                                const valUnit = parseFloat(rifa.valor_numero).toFixed(2).replace('.', ',');
+                                const valTotal = (parseFloat(rifa.valor_numero) * numeros.length).toFixed(2).replace('.', ',');
                                 await global.sock.sendMessage(jidEnvio, {
-                                    text: `✅ ${saudacao} Pagamento confirmado.\n\n🎁 Rifa: ${rifa.titulo}\n🎫 Números: ${numeros.join(', ')}\n🍀 Boa sorte!\n\n_Recibo: ${protocolo}_`
+                                    text: `✅ ${saudacao} Pagamento confirmado.\n\n🎁 Rifa: ${rifa.titulo}\n🎫 Números: ${numeros.join(', ')}\n💵 Valor Unid: R$ ${valUnit}\n💰 Total Pago: R$ ${valTotal}\n\n🍀 Boa sorte!\n\n_Recibo: ${protocolo}_`
                                 });
                             }
                         }
@@ -593,7 +596,10 @@ app.post('/api/enviar-cobranca-credito', async (req, res) => {
             [pixId, cliente_id, valorFloat, pixCode || '']
         );
 
-        const msg = `💳 *COBRANÇA DE CRÉDITO MENSAL*\n\nOlá ${nome}!\n\nA sua fatura de crédito da *${process.env.NOME_CLIENTE}* foi fechada.\n💰 *Total a pagar:* R$ ${valorFloat.toFixed(2).replace('.', ',')}\n\n📋 *Pague agora via PIX Copia e Cola abaixo:*`; await global.sock.sendMessage(userJid, { text: msg });
+        const nomeLojaCobranca = process.env.NOME_CLIENTE ? `SORTEIOS ${process.env.NOME_CLIENTE}` : 'SISTEMA DE SORTEIOS';
+        const msg = `*${nomeLojaCobranca.toUpperCase()}*\n💳 *COBRANÇA DE CRÉDITO MENSAL*\n\nOlá ${nome}!\n\nA sua fatura de crédito foi fechada.\n💰 *Total a pagar:* R$ ${valorFloat.toFixed(2).replace('.', ',')}\n\n📋 *Pague agora via PIX Copia e Cola abaixo:*`;
+
+        await global.sock.sendMessage(userJid, { text: msg });
 
         if (pixCode) {
             await global.sock.sendMessage(userJid, { text: pixCode });
@@ -646,14 +652,14 @@ app.post('/api/aviso-retry', async (req, res) => {
         res.status(500).send('Erro');
     }
 });
+
 app.post('/api/reenviar-lista', async (req, res) => {
     try {
-        const { sorteio_id, categoria } = req.body;
+        const { sorteio_id } = req.body;
         if (!sorteio_id || !global.sock) return res.status(400).json({ error: 'Erro de dados ou robô offline' });
 
-        const catNormalizada = categoria ? categoria.toLowerCase() : '';
-        const groupId = Object.keys(GRUPOS).find(key => GRUPOS[key] === catNormalizada);
-
+        // PEGA O GRUPO PRINCIPAL DIRETO
+        const groupId = Object.keys(GRUPOS).find(key => GRUPOS[key] === 'grupoSistema');
         if (!groupId) return res.status(400).json({ error: 'Grupo não encontrado' });
 
         const [rifas] = await pool.execute("SELECT * FROM sorteios WHERE id = ?", [sorteio_id]);
@@ -672,12 +678,11 @@ app.post('/api/reenviar-lista', async (req, res) => {
 // BOTÃO 2: Enviar alerta de números restantes
 app.post('/api/enviar-alerta-restantes', async (req, res) => {
     try {
-        const { sorteio_id, categoria } = req.body;
+        const { sorteio_id } = req.body;
         if (!sorteio_id || !global.sock) return res.status(400).json({ error: 'Erro de dados ou robô offline' });
 
-        const catNormalizada = categoria ? categoria.toLowerCase() : '';
-        const groupId = Object.keys(GRUPOS).find(key => GRUPOS[key] === catNormalizada);
-
+        // PEGA O GRUPO PRINCIPAL DIRETO
+        const groupId = Object.keys(GRUPOS).find(key => GRUPOS[key] === 'grupoSistema');
         if (!groupId) return res.status(400).json({ error: 'Grupo não encontrado' });
 
         // Puxa os dados da rifa
@@ -704,12 +709,12 @@ app.post('/api/enviar-alerta-restantes', async (req, res) => {
             return res.json({ success: false, message: 'O sorteio já está cheio!' });
         }
 
-        // Monta a frase inteligente dependendo da quantidade
         const qtdFaltam = faltam.length;
         const palavraFalta = qtdFaltam === 1 ? 'Falta apenas' : 'Faltam apenas';
         const palavraNumero = qtdFaltam === 1 ? 'número' : 'números';
 
-        const mensagem = `🚨 *ATENÇÃO: QUASE FECHANDO!* 🚨\n\n🎰 *${rifa.titulo} #${numVisual}*\n\n🔥 ${palavraFalta} *${qtdFaltam} ${palavraNumero}* para finalizar o sorteio!\n\n👉 *Restantes:* *${faltam.join(', ')}*\n\n🏃‍♂️ Envie *#numero* ou *#fechar* para garantir!`;
+        const nomeAlerta = process.env.NOME_CLIENTE ? `SORTEIOS ${process.env.NOME_CLIENTE}` : 'SISTEMA DE SORTEIOS';
+        const mensagem = `*${nomeAlerta.toUpperCase()}*\n🚨 *ATENÇÃO: QUASE FECHANDO!* 🚨\n\n🎰 *${rifa.titulo} #${numVisual}*\n\n🔥 ${palavraFalta} *${qtdFaltam} ${palavraNumero}* para finalizar o sorteio!\n\n👉 *Restantes:* *${faltam.join(', ')}*\n\n🏃‍♂️ Envie *#numero* ou *#fechar* para garantir!`;
 
         await global.sock.sendMessage(groupId, { text: mensagem });
         res.json({ success: true, message: 'Alerta enviado com sucesso!' });
@@ -719,6 +724,7 @@ app.post('/api/enviar-alerta-restantes', async (req, res) => {
         res.status(500).json({ error: e.message });
     }
 });
+
 async function connectToWhatsApp() {
     const { state, saveCreds } = await useMultiFileAuthState(path.join(BASE_PATH, 'baileys_auth'));
     const { version } = await fetchLatestBaileysVersion();
@@ -837,7 +843,7 @@ async function connectToWhatsApp() {
                 const poderCompraTotal = saldoDisp + creditoDisponivel;
 
                 // Montagem da Mensagem Personalizada
-                let mensagem = `💰 *SUA CARTEIRA - ${process.env.NOME_CLIENTE}*\n\n`;
+                let mensagem = `💰 *SUA CARTEIRA - ${process.env.NOME_CLIENTE || 'Sorteios'}*\n\n`;
                 mensagem += `👤 Nome: *${cliente.nome_fixo}*\n`;
                 mensagem += `━━━━━━━━━━━━━━━\n\n`;
 
@@ -942,7 +948,7 @@ async function connectToWhatsApp() {
                 }
 
                 // 4. Cabeçalho Personalizado
-                let mensagem = `📜 *HISTÓRICO DE JOGADAS E SALDO*\n\n🎯 *${process.env.NOME_CLIENTE}*\n👑━━━━━━━━━━━━━━━\n\n`;
+                let mensagem = `📜 *HISTÓRICO DE JOGADAS E SALDO*\n\n🎯 *${process.env.NOME_CLIENTE || 'Sorteios'}*\n👑━━━━━━━━━━━━━━━\n\n`;
 
                 for (const t of top10) {
                     const dataFormatada = t.data.toLocaleDateString('pt-BR');
@@ -991,7 +997,7 @@ async function connectToWhatsApp() {
                 const limiteExibicao = 10;
                 const premiosExibir = premios.slice(0, limiteExibicao);
 
-                let msg = `🎁 *SEUS PRÊMIOS PENDENTES*\n\n🎯 *${process.env.NOME_CLIENTE}*\n━━━━━━━━━━━━━━━\n\n`;
+                let msg = `🎁 *SEUS PRÊMIOS PENDENTES*\n\n🎯 *${process.env.NOME_CLIENTE || 'Sorteios'}*\n━━━━━━━━━━━━━━━\n\n`;
 
                 for (const p of premiosExibir) {
                     const numSorteio = p.numero_visual || p.sorteio_id;
@@ -1009,7 +1015,7 @@ async function connectToWhatsApp() {
                     msg += `⚠️ _Você tem um total de ${totalPendentes} prêmio(s) pendente(s)._\n\n`;
                 }
 
-                msg += `📍 *Atenção:* Retire seus prêmios no ${process.env.NOME_CLIENTE}!`;
+                msg += `📍 *Atenção:* Retire seus prêmios no ${process.env.NOME_CLIENTE || 'Sorteios'}!`;
 
                 await sock.sendMessage(participant, { text: msg });
                 return;
@@ -1105,8 +1111,7 @@ async function connectToWhatsApp() {
         if (category && body.startsWith('#') && body !== '#fechar' && body !== '#todos' && body !== '#config') {
             try {
                 const [rifas] = await pool.execute(
-                    "SELECT * FROM sorteios WHERE categoria = ? AND status = 'ativo' LIMIT 1",
-                    [category]
+                    "SELECT * FROM sorteios WHERE status = 'ativo' LIMIT 1"
                 );
                 if (rifas.length === 0) return;
                 const rifa = rifas[0];
@@ -1212,8 +1217,10 @@ async function connectToWhatsApp() {
                             ];
                             const tituloSorteado = titulosReserva[Math.floor(Math.random() * titulosReserva.length)];
 
+                            const valUnit = parseFloat(rifa.valor_numero).toFixed(2).replace('.', ',');
+                            const nomeReservaCart = process.env.NOME_CLIENTE ? `SORTEIOS ${process.env.NOME_CLIENTE}` : 'SISTEMA DE SORTEIOS';
                             await sock.sendMessage(participant, {
-                                text: `${tituloSorteado}\n\n🎁 Sorteio: *${rifa.titulo} #${numVisual}*\n🎟️ Números: *${nums.join(', ')}*\n💰 Total: R$ ${valorTotal.toFixed(2).replace('.', ',')}\n${detalhePgto}\n\nBoa sorte! 🍀`
+                                text: `*${nomeReservaCart.toUpperCase()}*\n${tituloSorteado}\n\n🎁 Sorteio: *${rifa.titulo} #${numVisual}*\n🎟️ Números: *${nums.join(', ')}*\n💵 Valor Unid: R$ ${valUnit}\n💰 Total Pago: R$ ${valorTotal.toFixed(2).replace('.', ',')}\n${detalhePgto}\n\nBoa sorte! 🍀`
                             });
                             return;
                         } else if (pag.erro === 'Limite Insuficiente' && pag.saldoAtual > 0) {
@@ -1263,8 +1270,7 @@ async function connectToWhatsApp() {
         if (category && (body === '#fechar' || body === '#fecha')) {
             try {
                 const [rifas] = await pool.execute(
-                    "SELECT * FROM sorteios WHERE categoria = ? AND status = 'ativo' LIMIT 1",
-                    [category]
+                    "SELECT * FROM sorteios WHERE status = 'ativo' LIMIT 1"
                 );
                 if (rifas.length > 0) {
                     const rifa = rifas[0];
@@ -1348,8 +1354,10 @@ async function connectToWhatsApp() {
                                     ];
                                     const msgFechada = msgFechamento[Math.floor(Math.random() * msgFechamento.length)];
 
+                                    const valUnit = parseFloat(rifa.valor_numero).toFixed(2).replace('.', ',');
+                                    const nomeFechaCart = process.env.NOME_CLIENTE ? `SORTEIOS ${process.env.NOME_CLIENTE}` : 'SISTEMA DE SORTEIOS';
                                     await sock.sendMessage(participant, {
-                                        text: `${msgFechada}\n\n🎁 Sorteio: *${rifa.titulo} #${numVisual}*\n🎟️ Números: *${inseridos.join(', ')}*\n💰 Total: R$ ${tot.replace('.', ',')}\n${detalhePgto}\n\nBoa sorte! 🍀`
+                                        text: `*${nomeFechaCart.toUpperCase()}*\n${msgFechada}\n\n🎁 Sorteio: *${rifa.titulo} #${numVisual}*\n🎟️ Números: *${inseridos.join(', ')}*\n💵 Valor Unid: R$ ${valUnit}\n💰 Total Pago: R$ ${tot.replace('.', ',')}\n${detalhePgto}\n\nBoa sorte! 🍀`
                                     });
 
                                     await forcarAtualizacaoImediata(rifa, groupJid);
@@ -1395,7 +1403,7 @@ async function connectToWhatsApp() {
         }
         if (body === '#config' || body === 'config') {
             await sock.sendMessage(groupJid, {
-                text: "🤖 *MENU DE COMANDOS - MERCADO SILVEIRA*\n\n" +
+                text: "🤖 *MENU DE COMANDOS - " + (process.env.NOME_CLIENTE || "SISTEMA DE SORTEIOS") + "*\n\n" +
                     "✅ *#número* (Ex: #01, #05) - Reservar números\n" +
                     "⚡ *#fechar* - Comprar todos os números restantes\n" +
                     "💰 *#saldo* - Ver saldo e limite de crédito\n" +
@@ -1449,7 +1457,7 @@ async function connectToWhatsApp() {
                 // Trava imediatamente para não enviar mensagens duplicadas
                 await pool.execute("UPDATE sorteios SET status = 'finalizando' WHERE id = ?", [rifa.id]);
 
-                const gid = Object.keys(GRUPOS).find(k => GRUPOS[k] === rifa.categoria);
+                const gid = Object.keys(GRUPOS).find(k => GRUPOS[k] === 'grupoSistema');
                 if (!gid) continue;
 
                 console.log(`🎬 Vídeo do Sorteio ${rifa.id} pronto! Enviando resultados...`);
@@ -1471,11 +1479,12 @@ async function connectToWhatsApp() {
                 // 3. Monta a mensagem de resultado
                 const emojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
                 const numVisual = String(rifa.numero_visual || rifa.id).padStart(2, '0');
-                let msgRes = `🏆 *RESULTADO OFICIAL - SORTEIO AUTOMÁTICO*\n\n🎰 *${rifa.titulo} #${numVisual}*\n\n`;
+                const nomeLojaAuto = process.env.NOME_CLIENTE ? `Sorteios ${process.env.NOME_CLIENTE}` : 'Sorteios';
+                let msgRes = `*${nomeLojaAuto.toUpperCase()}*\n🏆 *RESULTADO OFICIAL - SORTEIO AUTOMÁTICO*\n\n🎰 *${rifa.titulo} #${numVisual}*\n\n`;
                 ganhadores.forEach((g, index) => {
                     msgRes += `${emojis[index] || `${index + 1}º`} *${g.premio}*\n👤 ${g.nome_cliente} — *Nº ${g.numero_sorteado}*\n\n`;
                 });
-                msgRes += `_Retire seu prêmio em 48h no ${process.env.NOME_CLIENTE}_`;
+                msgRes += `_Retire seu prêmio em 48h no ${nomeLojaAuto}_`;
 
                 // 4. Caminho da pasta Uploads (Dinâmico)
                 const dirUploads = path.join(__dirname, '../assets/uploads');
@@ -1506,7 +1515,8 @@ async function connectToWhatsApp() {
                             const dataFormatada = agora.toLocaleDateString('pt-BR');
                             const horaFormatada = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-                            const msgPrivada = `🎉 *PARABÉNS! VOCÊ GANHOU!*\n\n🎰 *Sorteio:* ${rifa.titulo}\n🏅 *Colocação:* ${emojis[index] || `${index + 1}º`} Lugar\n🎁 *Prêmio:* ${g.premio}\n🎟️ *Número:* ${g.numero_sorteado}\n📅 *Data:* ${dataFormatada} às ${horaFormatada}\n\n⚠️ *Você tem 48hrs para retirar no ${process.env.NOME_CLIENTE}!*`;
+                            const nomeLojaAutoPriv = process.env.NOME_CLIENTE ? `Sorteios ${process.env.NOME_CLIENTE}` : 'Sorteios';
+                            const msgPrivada = `*${nomeLojaAutoPriv.toUpperCase()}*\n🎉 *PARABÉNS! VOCÊ GANHOU!*\n\n🎰 *Sorteio:* ${rifa.titulo}\n🏅 *Colocação:* ${emojis[index] || `${index + 1}º`} Lugar\n🎁 *Prêmio:* ${g.premio}\n🎟️ *Número:* ${g.numero_sorteado}\n📅 *Data:* ${dataFormatada} às ${horaFormatada}\n\n⚠️ *Você tem 48hrs para retirar na ${nomeLojaAutoPriv}!*`;
 
                             await global.sock.sendMessage(userJid, { text: msgPrivada });
                             await new Promise(r => setTimeout(r, Math.floor(Math.random() * 3000) + 4000));
@@ -1526,11 +1536,25 @@ async function connectToWhatsApp() {
                         const proximo = fila[0];
                         await pool.execute("UPDATE sorteios SET status = 'ativo', ordem_fila = 0 WHERE id = ?", [proximo.id]);
 
-                        const numFormatado = String(proximo.numero_visual || proximo.id).padStart(2, '0');
-                        const msgNovo = `🚨 *Os Sorteios Não Param...* 🚨\n\nO sorteio *${proximo.titulo} #${numFormatado}* acabou de entrar na mesa!\n\n👉 Envie *#numero* ou *#fechar* para garantir sua vaga antes que acabe!`;
+                        // 🔴 Trava para o monitor não mandar a mídia duplicada depois
+                        sorteiosNotificados.add(proximo.id);
+                        ultimoStatusPorSorteio[proximo.id] = "0_0";
 
+                        const numFormatado = String(proximo.numero_visual || proximo.id).padStart(2, '0');
+
+                        // 1️⃣ Manda a mensagem de HYPE
+                        const nomePlaylist = process.env.NOME_CLIENTE ? `SORTEIOS ${process.env.NOME_CLIENTE}` : 'SISTEMA DE SORTEIOS';
+                        const msgNovo = `*${nomePlaylist.toUpperCase()}*\n🚨 *AQUI O SORTEIO NÃO PARA!* 🚨\n\nVamos para o próximo da fila!\nO sorteio *${proximo.titulo} #${numFormatado}* acabou de entrar na mesa!\n\n👉 Envie *#numero* ou *#fechar* para garantir sua vaga antes que acabe!`;
                         await global.sock.sendMessage(gid, { text: msgNovo });
-                        console.log(`🔄 PLAYLIST: Sorteio ${proximo.id} (Fila) ativado automaticamente na categoria ${rifa.categoria}!`);
+                        await new Promise(r => setTimeout(r, 3000)); // Pausa humana
+
+                        // 2️⃣ Chama a função de mídias (Foto 1 > pausa > Foto 2 > pausa > Vídeo > pausa)
+                        await enviarMidiasIniciais(proximo, gid);
+
+                        // 3️⃣ Manda a lista zerada do novo sorteio
+                        await enviarListaAtualizada(proximo, gid);
+
+                        console.log(`🔄 PLAYLIST: Sorteio ${proximo.id} (Fila) ativado e anunciado automaticamente!`);
                     } else {
                         console.log(`⏸️ Fila vazia para a categoria ${rifa.categoria}. Aguardando novos sorteios no painel.`);
                     }
@@ -1555,7 +1579,7 @@ async function connectToWhatsApp() {
                 const totalVendas = v[0].t;
                 const totalPagos = p[0].t;
                 const statusCalculado = `${totalVendas}_${totalPagos}`;
-                const gid = Object.keys(GRUPOS).find(k => GRUPOS[k] === rifa.categoria);
+                const gid = Object.keys(GRUPOS).find(k => GRUPOS[k] === 'grupoSistema');
 
                 let precisaEnviarFinal = false;
 
@@ -1622,10 +1646,10 @@ async function criarPagamentoMercadoPago(valorTotal, descricao, telefoneBruto, n
         payment_method_id: 'pix',
         date_of_expiration: dataExpiracao, // <-- TRAVA O PIX EM 10 MINUTOS AQUI!
         payer: {
-            email: emailPayer,
+            email: `cliente_${numLimpo}@dkingsorteios.com.br`,
             first_name: 'Cliente' // Sem CPF, apenas um primeiro nome genérico
         },
-        notification_url: 'https://mercadosilveira.dkingsorteios.com.br/webhook_mp.php',
+        notification_url: 'https://sistema.dkingsorteios.com.br/webhook_mp.php',
         external_reference: `${numLimpo}|${numerosReservados.join(',')}`,
         metadata: {
             telefone: numLimpo,
@@ -1644,17 +1668,6 @@ async function criarPagamentoMercadoPago(valorTotal, descricao, telefoneBruto, n
 
     return response.data;
 }
-const idempotencyKey = `${numLimpo}-${Date.now()}-${numerosReservados.join('')}`;
-const response = await axios.post(MERCADOPAGO_API_URL, paymentData, {
-    headers: {
-        'Authorization': `Bearer ${MERCADOPAGO_ACCESS_TOKEN}`,
-        'Content-Type': 'application/json',
-        'X-Idempotency-Key': idempotencyKey
-    }
-});
-
-return response.data;
-
 
 async function enviarDadosPagamento(telefoneBruto, pagamentoInfo, rifa, numerosReservados, valorTotal, nomeCliente) {
     const pixCode = pagamentoInfo.point_of_interaction?.transaction_data?.qr_code;
@@ -1672,7 +1685,8 @@ async function enviarDadosPagamento(telefoneBruto, pagamentoInfo, rifa, numerosR
     const protocolo = Math.floor(Math.random() * 90000) + 10000;
     const nomeFormatado = nomeCliente ? `*${nomeCliente}*` : 'Cliente';
 
-    let mensagem = `${saudacao}, ${nomeFormatado}!\n\n💳 *PAGAMENTO - MERCADO PAGO*\n\n🎁 *Sorteio:* ${rifa.titulo}\n🎫 *Números:* ${numerosReservados.join(', ')}\n💰 *Valor Total:* R$ ${valorTotal}\n⏰ *Pagamento expira em 10 minutos*\n\n_Ref: ${protocolo}_`;
+    const nomeLojaPix = process.env.NOME_CLIENTE ? `SORTEIOS ${process.env.NOME_CLIENTE}` : 'SISTEMA DE SORTEIOS';
+    let mensagem = `${saudacao}, ${nomeFormatado}!\n\n💳 *PAGAMENTO - ${nomeLojaPix.toUpperCase()}*\n\n🎁 *Sorteio:* ${rifa.titulo}\n🎫 *Números:* ${numerosReservados.join(', ')}\n💰 *Valor Total:* R$ ${valorTotal}\n⏰ *Pagamento expira em 10 minutos*\n\n_Ref: ${protocolo}_`;
     // --- FIM DA CAMUFLAGEM ---
 
     try {
@@ -1753,8 +1767,9 @@ setInterval(async () => {
                         if (clienteData.length > 0 && global.sock) {
                             let jidEnvio = clienteData[0].id_whatsapp;
                             jidEnvio = jidEnvio.length >= 14 ? `${jidEnvio}@lid` : `${jidEnvio}@s.whatsapp.net`;
+                            const nomeRecarga = process.env.NOME_CLIENTE ? `SORTEIOS ${process.env.NOME_CLIENTE}` : 'SISTEMA DE SORTEIOS';
                             await global.sock.sendMessage(jidEnvio, {
-                                text: `✅ *RECARGA APROVADA!*\n\n💰 Valor: R$ ${valor.toFixed(2).replace('.', ',')}\n💵 Seu saldo atual é: *R$ ${saldoNovo.toFixed(2).replace('.', ',')}*\n\nVocê já pode comprar seus números direto pelo saldo!`
+                                text: `*${nomeRecarga.toUpperCase()}*\n✅ *RECARGA APROVADA!*\n\n💰 Valor: R$ ${valor.toFixed(2).replace('.', ',')}\n💵 Seu saldo atual é: *R$ ${saldoNovo.toFixed(2).replace('.', ',')}*\n\nVocê já pode comprar seus números direto pelo saldo!`
                             });
                         }
                     }
@@ -1816,12 +1831,15 @@ setInterval(async () => {
                                 const delayRadar = Math.floor(Math.random() * 3000) + 2000;
                                 await new Promise(r => setTimeout(r, delayRadar));
 
+                                const valUnit = parseFloat(rifas[0].valor_numero).toFixed(2).replace('.', ',');
+                                const valTotal = (parseFloat(rifas[0].valor_numero) * numeros.length).toFixed(2).replace('.', ',');
+                                const nomeConfirma2 = process.env.NOME_CLIENTE ? `SORTEIOS ${process.env.NOME_CLIENTE}` : 'SISTEMA DE SORTEIOS';
                                 await global.sock.sendMessage(jidEnvio, {
-                                    text: `✅ ${saudacao} Pagamento confirmado.\n\n🎁 Rifa: ${rifas[0].titulo}\n🎫 Números: ${numeros.join(', ')}\n🍀 Boa sorte!\n\n_Recibo: ${protocolo}_`
+                                    text: `*${nomeConfirma2.toUpperCase()}*\n✅ ${saudacao} Pagamento confirmado.\n\n🎁 Rifa: ${rifas[0].titulo}\n🎫 Números: ${numeros.join(', ')}\n💵 Valor Unid: R$ ${valUnit}\n💰 Total Pago: R$ ${valTotal}\n\n🍀 Boa sorte!\n\n_Recibo: ${protocolo}_`
                                 });
 
                                 // 3. Agrupa a atualização da lista no grupo (evita spam se aprovar vários PIXs juntos)
-                                const groupId = Object.keys(GRUPOS).find(k => GRUPOS[k] === rifas[0].categoria);
+                                const groupId = Object.keys(GRUPOS).find(k => GRUPOS[k] === 'grupoSistema');
                                 if (groupId) {
                                     agendarAtualizacaoLista(rifas[0], groupId);
                                 }
@@ -1911,7 +1929,8 @@ setInterval(async () => {
                     let jidEnvio = key;
                     jidEnvio = jidEnvio.length >= 14 ? `${jidEnvio}@lid` : `${jidEnvio}@s.whatsapp.net`;
 
-                    const msg = `⚠️ *AVISO IMPORTANTE - SORTEIO CANCELADO* ⚠️\n\nOlá, ${c.nome || 'Cliente'}!\nO sorteio *${rifa.titulo} #${numVisual}* infelizmente precisou ser cancelado pela administração.\n\n🎟️ *Seus números eram:* ${c.numeros.join(', ')}\n💰 *Valor pago:* R$ ${totalEstorno.toFixed(2).replace('.', ',')}\n\n✅ *SEU DINHEIRO ESTÁ SEGURO!*\nO valor integral que você pagou foi creditado agora mesmo na sua *Carteira Digital* do nosso sistema.\n\nNa sua próxima jogada, o robô usará esse saldo automaticamente caso você tenha o valor completo da rifa!\n\n💡 _Use o comando *#saldo* aqui nesta conversa privada com o robô para ver sua conta._`;
+                    const nomeEstorno = process.env.NOME_CLIENTE ? `SORTEIOS ${process.env.NOME_CLIENTE}` : 'SISTEMA DE SORTEIOS';
+                    const msg = `*${nomeEstorno.toUpperCase()}*\n⚠️ *AVISO IMPORTANTE - SORTEIO CANCELADO* ⚠️\n\nOlá, ${c.nome || 'Cliente'}!\nO sorteio *${rifa.titulo} #${numVisual}* infelizmente precisou ser cancelado pela administração.\n\n🎟️ *Seus números eram:* ${c.numeros.join(', ')}\n💰 *Valor pago:* R$ ${totalEstorno.toFixed(2).replace('.', ',')}\n\n✅ *SEU DINHEIRO ESTÁ SEGURO!*\nO valor integral que você pagou foi creditado agora mesmo na sua *Carteira Digital* do nosso sistema.\n\nNa sua próxima jogada, o robô usará esse saldo automaticamente caso você tenha o valor completo da rifa!\n\n💡 _Use o comando *#saldo* aqui nesta conversa privada com o robô para ver sua conta._`;
                     if (global.sock) {
                         await global.sock.sendMessage(jidEnvio, { text: msg });
                         // Pausa flutuante (entre 4s e 7s) para simular humano devolvendo

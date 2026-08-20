@@ -1,18 +1,20 @@
+require('dotenv').config({ path: '../.env' });
 const { spawn } = require('child_process');
 const puppeteer = require('puppeteer');
 const mysql = require('mysql2/promise');
 const axios = require('axios'); // ADICIONADO PARA COMUNICAR COM O ZAP
+const path = require('path');
 
 const pool = mysql.createPool({
-    host: 'localhost',
-    user: 'merc_mercadosilveira_user',
-    password: 'De04081986##',
-    database: 'merc_mercadosilveira_db',
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASS || 'dkingadmin',
+    database: process.env.DB_NAME || 'sistema_cliente_1',
     waitForConnections: true,
     connectionLimit: 2,
 });
 
-const uploadDir = '/home/mercadosilveira.dkingsorteios.com.br/public_html/assets/uploads';
+const uploadDir = path.join(__dirname, '../assets/uploads');
 let gravadorOcupado = false;
 
 async function iniciarGravador() {
@@ -64,11 +66,13 @@ async function iniciarGravador() {
                         ]);
 
                         console.log(`📡 [SORTEIO ${idSorteio}] [T${tentativa}] Abrindo página do sorteador...`);
-                        
+
+                        //  const urlSorteador = `${process.env.APP_URL}/sistema_sorteios/sorteador.php?id=${idSorteio}&t=${Date.now()}`;
+                        const urlSorteador = `http://localhost:8002/sorteador.php?id=${idSorteio}&t=${Date.now()}`;
                         // AUMENTADO PARA 4 MINUTOS (240000ms)
-                        await page.goto(`https://mercadosilveira.dkingsorteios.com.br/sistema_sorteios/sorteador.php?id=${idSorteio}&t=${Date.now()}`, {
+                        await page.goto(urlSorteador, {
                             waitUntil: 'domcontentloaded',
-                            timeout: 240000 
+                            timeout: 240000
                         });
                         console.log(`✅ [SORTEIO ${idSorteio}] [T${tentativa}] Página aberta.`);
 
@@ -95,7 +99,7 @@ async function iniciarGravador() {
                         await page.click('#btnPlay');
 
                         console.log(`⏳ [SORTEIO ${idSorteio}] [T${tentativa}] Aguardando finalização (timeout 4min)...`);
-                        
+
                         // AUMENTADO PARA 4 MINUTOS (240000ms)
                         await page.waitForSelector('#sorteioFinalizado', { timeout: 240000 });
 
@@ -111,24 +115,24 @@ async function iniciarGravador() {
                         await pool.execute("UPDATE sorteios SET status = 'video_pronto' WHERE id = ?", [idSorteio]);
                         sucesso = true;
 
-                        if (browser) await browser.close().catch(() => {});
+                        if (browser) await browser.close().catch(() => { });
                         break; // SUCESSO ABSOLUTO! SAI DO LOOP E SEGUE O BAILE
 
                     } catch (e) {
                         console.error(`❌ ERRO NO SORTEIO ${idSorteio} (Tentativa ${tentativa}):`, e.message);
-                        
+
                         // DEU ERRO! MATA TUDO PARA LIMPAR A MEMÓRIA
-                        if (browser) await browser.close().catch(() => {});
+                        if (browser) await browser.close().catch(() => { });
                         if (ffmpeg) ffmpeg.kill('SIGKILL');
 
                         if (tentativa === 1) {
                             console.log(`🔄 Iniciando Tentativa 2... Avisando o grupo.`);
                             try {
                                 await axios.post('http://localhost:3000/api/aviso-retry', { idSorteio });
-                            } catch (err) {}
-                            
+                            } catch (err) { }
+
                             // PAUSA DE 5 SEGUNDOS PARA O SERVIDOR RESPIRAR ANTES DE TENTAR DE NOVO
-                            await new Promise(r => setTimeout(r, 5000)); 
+                            await new Promise(r => setTimeout(r, 5000));
                         }
                     }
                 }

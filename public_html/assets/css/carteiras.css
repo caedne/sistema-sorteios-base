@@ -447,3 +447,7 @@
         width: 100%;
     }
 }
+.btn-excluir {
+    background: #ef4444;
+    color: white;
+}

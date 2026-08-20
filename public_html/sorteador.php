@@ -3,13 +3,15 @@ date_default_timezone_set('America/Sao_Paulo');
 include 'db.php';
 
 $sorteio_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-if ($sorteio_id === 0) die("Erro: ID não fornecido.");
+if ($sorteio_id === 0)
+    die("Erro: ID não fornecido.");
 
 // 1. Busca dados do sorteio
 $sqlSorteio = "SELECT titulo, premios, categoria, numero_visual, id FROM sorteios WHERE id = $sorteio_id";
 $resSorteio = $conn->query($sqlSorteio);
 $dadosSorteio = $resSorteio->fetch_assoc();
-if (!$dadosSorteio) die("Erro: Sorteio não encontrado.");
+if (!$dadosSorteio)
+    die("Erro: Sorteio não encontrado.");
 
 $categoriaNome = strtoupper($dadosSorteio['categoria']);
 $numVisual = isset($dadosSorteio['numero_visual']) ? $dadosSorteio['numero_visual'] : $dadosSorteio['id'];
@@ -78,9 +80,13 @@ if (empty($participantesBD) && !$replay) {
 
     <div class="sidebar">
         <div class="relogio-container"><span id="dataLive"></span> <span id="horaLive"></span></div>
-        <div class="logo-container">SISTEMA DE SORTEIOS<span class="cliente-nome">Mercado Silveira</span></div>
+        <div class="logo-container">SISTEMA DE SORTEIOS<span
+                class="cliente-nome"><?php echo getenv('NOME_CLIENTE') ? htmlspecialchars(getenv('NOME_CLIENTE')) : ''; ?></span>
+        </div>
         <div class="painel-vencedores">
-            <h3 style="text-align:center; color:#f1c40f; border-bottom:1px solid #475569; padding-bottom:8px; margin:0; font-size:14px;">GANHADORES</h3>
+            <h3
+                style="text-align:center; color:#f1c40f; border-bottom:1px solid #475569; padding-bottom:8px; margin:0; font-size:14px;">
+                GANHADORES</h3>
             <div id="listaGanhadores"></div>
         </div>
     </div>
@@ -93,11 +99,14 @@ if (empty($participantesBD) && !$replay) {
         </div>
 
         <div class="maquina-box">
-            <div style="position:absolute; width:550px; height:10px; background:linear-gradient(to bottom, #94a3b8, #475569); top:50%; border-radius:5px;"></div>
+            <div
+                style="position:absolute; width:550px; height:10px; background:linear-gradient(to bottom, #94a3b8, #475569); top:50%; border-radius:5px;">
+            </div>
             <canvas id="globoCanvas" width="600" height="600"></canvas>
             <div id="bolinhaSorteada">
                 <span id="resNum" style="font-size:110px; font-weight:900; line-height:1;">00</span>
-                <span id="resNome" style="font-size:20px; font-weight:bold; padding:0 20px; text-transform:uppercase;">CLIENTE</span>
+                <span id="resNome"
+                    style="font-size:20px; font-weight:bold; padding:0 20px; text-transform:uppercase;">CLIENTE</span>
             </div>
         </div>
 
@@ -217,7 +226,7 @@ if (empty($participantesBD) && !$replay) {
                 if (bolinhas.length === 0) break;
                 let nomePremio = (replay && ganhadoresReplay[i]) ? ganhadoresReplay[i].premio : listaPremios[i];
 
-                pAtual.innerText = `VALENDO: ${i+1}º LUGAR - ${nomePremio}`;
+                pAtual.innerText = `VALENDO: ${i + 1}º LUGAR - ${nomePremio}`;
                 res.style.transform = "translate(-50%,-50%) scale(0)";
 
                 girando = true;
@@ -246,17 +255,17 @@ if (empty($participantesBD) && !$replay) {
 
                 const item = document.createElement('div');
                 item.className = 'item-card';
-                item.innerHTML = `<b>${i+1}º Lugar</b><br>${sort.id} - ${sort.nome}`;
+                item.innerHTML = `<b>${i + 1}º Lugar</b><br>${sort.id} - ${sort.nome}`;
                 document.getElementById('listaGanhadores').prepend(item);
-                    await new Promise(r => setTimeout(r, 3000));
-                }
+                await new Promise(r => setTimeout(r, 3000));
+            }
 
-                // ESCONDE A ÚLTIMA BOLA ANTES DO PRINT
-                res.style.transform = "translate(-50%,-50%) scale(0)";
-                await new Promise(r => setTimeout(r, 800)); // Dá 0.8s para ela sumir da tela
+            // ESCONDE A ÚLTIMA BOLA ANTES DO PRINT
+            res.style.transform = "translate(-50%,-50%) scale(0)";
+            await new Promise(r => setTimeout(r, 800)); // Dá 0.8s para ela sumir da tela
 
-               // 1. AVISA O ROBÔ QUE ACABOU (Cria o sinal dinâmico que o robô espera)
-                pAtual.textContent = 'SORTEIO FINALIZADO';
+            // 1. AVISA O ROBÔ QUE ACABOU (Cria o sinal dinâmico que o robô espera)
+            pAtual.textContent = 'SORTEIO FINALIZADO';
 
             const sinal = document.createElement('div');
             sinal.id = 'sorteioFinalizado';

@@ -103,11 +103,11 @@ function formatarTelefone($telefone)
                             </thead>
                             <tbody>
                                 <?php while ($row = $result->fetch_assoc()):
-                                    $saldo = $row['saldo'] ?? 0;
+                                    $saldo = max(0, $row['saldo'] ?? 0);
                                     $limite = $row['credito_limite'] ?? 0;
                                     $usado = $row['credito_usado'] ?? 0;
-                                    $fiado_livre = $limite - $usado;
-                                    $poder_total = $saldo + $fiado_livre;
+                                    $fiado_livre = max(0, $limite - $usado);
+                                    $poder_total = max(0, $saldo + $fiado_livre);
                                     ?>
                                     <tr>
                                         <td>

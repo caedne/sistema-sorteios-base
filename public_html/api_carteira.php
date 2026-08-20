@@ -343,7 +343,15 @@ try {
 
         case 'remover_credito_completo':
             $cliente_id = $_POST['cliente_id'] ?? null;
-            $stmt = $conn->prepare("UPDATE carteiras SET credito_limite = 0 WHERE cliente_id = ?");
+            $zerar_divida = $_POST['zerar_divida'] ?? 'false';
+
+            if ($zerar_divida === 'true') {
+                // Zera o limite e zera a dívida fantasma
+                $stmt = $conn->prepare("UPDATE carteiras SET credito_limite = 0, credito_usado = 0 WHERE cliente_id = ?");
+            } else {
+                // Remove apenas o limite
+                $stmt = $conn->prepare("UPDATE carteiras SET credito_limite = 0 WHERE cliente_id = ?");
+            }
             $stmt->bind_param("i", $cliente_id);
             echo json_encode(['success' => $stmt->execute()]);
             break;

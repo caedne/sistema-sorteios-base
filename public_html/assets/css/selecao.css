@@ -172,7 +172,6 @@
     transform: scale(1.05);
 }
 
-/* --- CORREÇÃO DO MODAL (PARAR DE PULAR) --- */
 .modal {
     display: none;
     position: fixed;
@@ -182,14 +181,11 @@
     height: 100%;
     background: rgba(0, 0, 0, 0.8);
     z-index: 2000;
-    /* MUDANÇA AQUI: Alinhamento no topo, não no centro */
     align-items: flex-start;
     justify-content: center;
     overflow-y: auto;
-    /* Permite rolar a tela se o modal for grande */
-    padding-top: 50px;
-    /* Distância do topo */
-    padding-bottom: 50px;
+    padding-top: 20px;
+    padding-bottom: 20px;
 }
 
 .modal.visivel {
@@ -199,11 +195,10 @@
 .modal-content {
     background: white;
     width: 95%;
-    max-width: 700px;
+    max-width: 1200px;
     border-radius: 12px;
-    padding: 25px;
+    padding: 20px 25px;
     position: relative;
-    /* Removemos max-height fixo para ele crescer livremente com a página */
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
 }
 
@@ -316,13 +311,18 @@
     padding: 10px;
     border-radius: 8px;
     border: 1px solid #e2e8f0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .input-premio-linha {
     display: flex;
     gap: 8px;
-    margin-bottom: 6px;
     align-items: center;
+    flex: 1 1 210px;
+    min-width: 210px;
+    position: relative;
 }
 
 .rank-badge {
@@ -339,7 +339,7 @@
 /* Área de Upload */
 .area-uploads {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     gap: 15px;
     margin-top: 15px;
     background: #f8fafc;
@@ -380,11 +380,11 @@
 }
 
 .preview-box {
-    min-height: 80px;
+    min-height: 50px;
     height: auto;
     background: white;
     border-radius: 6px;
-    padding: 10px;
+    padding: 8px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -399,6 +399,16 @@
     margin-bottom: 5px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     cursor: zoom-in;
+}
+
+.preview-box video {
+    max-width: 100%;
+    max-height: 100px;
+    border-radius: 4px;
+    margin-bottom: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    cursor: zoom-in;
+    object-fit: cover;
 }
 
 .vid-thumb {
@@ -489,19 +499,21 @@
     transform: scale(1.1);
     background: #ff0000;
 }
+
 /* =========================================
    MÁGICA DO AUTOCOMPLETAR (MEMÓRIA)
    ========================================= */
 .autocomplete-box {
     position: absolute;
     top: 100%;
-    left: 33px; /* Pula exatamente o tamanho do quadradinho "1º" */
+    left: 33px;
+    /* Pula exatamente o tamanho do quadradinho "1º" */
     right: 0;
     background: white;
     border: 2px solid #e2e8f0;
     border-top: none;
     border-radius: 0 0 8px 8px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
     z-index: 10000;
     max-height: 200px;
     overflow-y: auto;
@@ -524,7 +536,8 @@
 .autocomplete-item:hover {
     background: #f8fafc;
     color: #3b82f6;
-    padding-left: 20px; /* Dá um efeitinho legal ao passar o mouse */
+    padding-left: 20px;
+    /* Dá um efeitinho legal ao passar o mouse */
 }
 
 /* Responsividade */
@@ -544,6 +557,12 @@
     }
 }
 
+@media (max-width: 900px) and (min-width: 769px) {
+    .area-uploads {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
 @media (max-width: 1400px) {
     .grid-cards {
         grid-template-columns: repeat(3, 1fr);
@@ -559,10 +578,5 @@
 @media (max-width: 600px) {
     .grid-cards {
         grid-template-columns: 1fr;
-    }
-
-    .modal-content {
-        width: 95%;
-        padding: 15px;
     }
 }

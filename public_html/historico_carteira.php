@@ -11,7 +11,6 @@ if (!isset($_SESSION['admin_logado']) || $_SESSION['admin_logado'] !== true) {
     exit;
 }
 include 'db.php';
-session_start();
 
 $cliente_id = $_GET['cliente_id'] ?? null;
 
@@ -31,8 +30,7 @@ if (!$cliente) {
     exit;
 }
 
-
-// Buscar transações (AQUI ESTÁ O NOVO FILTRO QUE MOSTRA TUDO)
+// Buscar transações
 $stmt = $conn->prepare("
     SELECT * FROM transacoes_carteira 
     WHERE cliente_id = ? 
@@ -65,14 +63,16 @@ function formatarTelefone($telefone)
 <head>
     <meta charset="UTF-8">
     <title>Histórico - <?php echo htmlspecialchars($cliente['nome_fixo']); ?> | D'KING</title>
-    <link rel="stylesheet" href="../assets/css/global.css">
-    <link rel="stylesheet" href="../assets/css/sidebar.css">
-    <link rel="stylesheet" href="../assets/css/carteiras.css">
+    <!-- CORRIGIDO: Removido o '../' dos caminhos -->
+    <link rel="stylesheet" href="assets/css/global.css">
+    <link rel="stylesheet" href="assets/css/sidebar.css">
+    <link rel="stylesheet" href="assets/css/carteiras.css">
 </head>
 
 <body>
     <div class="layout-sistema">
-        <aside class="sidebar"><?php include '../componentes/sidebar.php'; ?></aside>
+        <!-- CORRIGIDO: Removido o '../' do include -->
+        <aside class="sidebar"><?php include 'componentes/sidebar.php'; ?></aside>
 
         <main class="conteudo-principal">
             <div class="container">
@@ -114,16 +114,14 @@ function formatarTelefone($telefone)
                                 <?php while ($t = $transacoes->fetch_assoc()):
                                     $cor = 'saldo-positivo';
                                     $sinal = '+ ';
-                                    $cor_texto_valor = '#16a34a'; // Verde padrão
+                                    $cor_texto_valor = '#16a34a';
                                     $tipo_texto = '';
 
-                                    // Se for compra com a carteira, fica vermelho e negativo!
                                     if ($t['tipo'] === 'compra_saldo' || $t['tipo'] === 'compra_credito') {
                                         $sinal = '- ';
-                                        $cor_texto_valor = '#ef4444'; // Vermelho
+                                        $cor_texto_valor = '#ef4444';
                                     }
 
-                                    // Deixando os nomes bonitos e fáceis de entender
                                     switch ($t['tipo']) {
                                         case 'compra_saldo':
                                             $tipo_texto = '🛒 Compra c/ Saldo';

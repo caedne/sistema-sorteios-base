@@ -23,12 +23,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $b = $conn->real_escape_string($_POST['baixar_busca']);
         $aba = $conn->real_escape_string($_POST['tab']);
         if (!empty($b)) {
-            $conn->query("UPDATE ganhadores_premios gp 
-                          JOIN sorteios s ON gp.sorteio_id = s.id 
-                          SET gp.status_retirada = 'entregue', gp.no_carrinho = 0, gp.data_retirada = NOW() 
-                          WHERE (gp.status_retirada = 'pendente' OR gp.status_retirada IS NULL OR gp.status_retirada = '') 
-                          AND s.categoria = '$aba' 
-                          AND (gp.nome_cliente LIKE '$b%' OR gp.nome_cliente LIKE '% $b%')");
+           $conn->query("UPDATE ganhadores_premios gp 
+              JOIN sorteios s ON gp.sorteio_id = s.id 
+              SET gp.status_retirada = 'entregue', gp.no_carrinho = 0, gp.data_retirada = NOW() 
+              WHERE (gp.status_retirada = 'pendente' OR gp.status_retirada IS NULL OR gp.status_retirada = '') 
+              AND (gp.nome_cliente LIKE '$b%' OR gp.nome_cliente LIKE '% $b%')");
             header("Location: retirada.php?tab=$aba&q=" . urlencode($b));
             exit;
         }
@@ -84,9 +83,9 @@ $sort = isset($_GET['sort']) ? $_GET['sort'] : 'data';
 $statusFiltro = " AND (gp.status_retirada = 'pendente' OR gp.status_retirada IS NULL OR gp.status_retirada = '') ";
 
 if (!empty($busca)) {
-    $where = "$statusFiltro AND s.categoria = '$abaAtiva' AND (gp.nome_cliente LIKE '$busca%' OR gp.nome_cliente LIKE '% $busca%')";
+    $where = "$statusFiltro AND (gp.nome_cliente LIKE '$busca%' OR gp.nome_cliente LIKE '% $busca%')";
 } else {
-    $where = "$statusFiltro AND s.categoria = '$abaAtiva' AND DATE(gp.data_ganho) = '$filtroData'";
+    $where = "$statusFiltro AND DATE(gp.data_ganho) = '$filtroData'";
 }
 
 if ($sort === 'nome') {

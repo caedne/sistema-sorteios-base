@@ -30,6 +30,10 @@ if (!$cliente) {
     exit;
 }
 
+$id_whatsapp = $cliente['id_whatsapp'] ?? '';
+$mes_atual = date('m');
+$ano_atual = date('Y');
+
 // 2. Busca Carteira (Saldo e Crédito)
 $saldo = 0;
 $limite = 0;
@@ -47,53 +51,54 @@ if ($stmt_cart) {
     }
 }
 
-// Cálculos de Crédito
 $disponivel = $limite - $usado;
-$porcentagem_uso = ($limite > 0) ? ($usado / $limite) * 100 : 0;
-if ($porcentagem_uso > 100)
-    $porcentagem_uso = 100;
-
-$id_whatsapp = $cliente['id_whatsapp'] ?? '';
 
 // =========================================================================
-// 3. ESTATÍSTICAS CORRIGIDAS (NÃO ZERA MAIS)
+// 3. ESTATÍSTICAS MENSAIS E GERAIS
 // =========================================================================
 
-// Total de Prêmios REAIS ganhos por este cliente (Cruzando com as vendas para garantir antigos e novos)
-$sql_premios = "SELECT COUNT(DISTINCT gp.id) as total 
-                FROM ganhadores_premios gp
-                LEFT JOIN vendas v ON gp.sorteio_id = v.sorteio_id AND CAST(gp.numero_sorteado AS UNSIGNED) = CAST(v.numero_escolhido AS UNSIGNED)
-                WHERE gp.cliente_id = ? 
-                   OR (gp.id_whatsapp = ? AND gp.id_whatsapp != '')
-                   OR v.cliente_id = ? 
-                   OR (v.id_whatsapp = ? AND v.id_whatsapp != '')";
-$stmt_premios = $conn->prepare($sql_premios);
-$stmt_premios->bind_param("isis", $id, $id_whatsapp, $id, $id_whatsapp);
-$stmt_premios->execute();
-$total_premios = $stmt_premios->get_result()->fetch_assoc()['total'] ?? 0;
+// Total de Jogadas (Mês e Geral)
+$sql_jogadas = "SELECT 
+    COUNT(*) as total_geral,
+    SUM(CASE WHEN MONTH(data_reserva) = ? AND YEAR(data_reserva) = ? THEN 1 ELSE 0 END) as total_mes
+    FROM vendas v 
+    WHERE (v.cliente_id = ? OR (v.id_whatsapp = ? AND v.id_whatsapp != '')) 
+    AND v.status_venda IN ('pago', 'ganhador', 'pendente')";
 
-// Total de Jogadas (Conta tudo que ele comprou na vida)
-$sql_jogadas = "SELECT COUNT(*) as total
-                FROM vendas v
-                WHERE (v.cliente_id = ? OR (v.id_whatsapp = ? AND v.id_whatsapp != ''))
-                AND v.status_venda IN ('pago', 'ganhador', 'pendente', 'estornado')"; // <-- Adicionado 'estornado'
 $stmt_jogadas = $conn->prepare($sql_jogadas);
-$stmt_jogadas->bind_param("is", $id, $id_whatsapp);
+$stmt_jogadas->bind_param("ssis", $mes_atual, $ano_atual, $id, $id_whatsapp);
 $stmt_jogadas->execute();
-$total_jogadas = $stmt_jogadas->get_result()->fetch_assoc()['total'] ?? 0;
+$res_j = $stmt_jogadas->get_result()->fetch_assoc();
+
+$total_jogadas_geral = $res_j['total_geral'] ?? 0;
+$total_jogadas_mes = $res_j['total_mes'] ?? 0;
+
+// Prêmios (Mês e Geral)
+$sql_premios = "SELECT 
+    COUNT(DISTINCT gp.id) as total_geral,
+    COUNT(DISTINCT CASE WHEN MONTH(gp.data_ganho) = ? AND YEAR(gp.data_ganho) = ? THEN gp.id END) as total_mes
+    FROM ganhadores_premios gp
+    LEFT JOIN vendas v ON gp.sorteio_id = v.sorteio_id AND CAST(gp.numero_sorteado AS UNSIGNED) = CAST(v.numero_escolhido AS UNSIGNED)
+    WHERE gp.cliente_id = ? OR (gp.id_whatsapp = ? AND gp.id_whatsapp != '') OR v.cliente_id = ? OR (v.id_whatsapp = ? AND v.id_whatsapp != '')";
+
+$stmt_premios = $conn->prepare($sql_premios);
+$stmt_premios->bind_param("ssisis", $mes_atual, $ano_atual, $id, $id_whatsapp, $id, $id_whatsapp);
+$stmt_premios->execute();
+$res_p = $stmt_premios->get_result()->fetch_assoc();
+
+$total_premios_geral = $res_p['total_geral'] ?? 0;
+$total_premios_mes = $res_p['total_mes'] ?? 0;
 
 
 // =========================================================================
-// 4. O SUPER HISTÓRICO DE JOGADAS (NOVO FORMATO)
+// 4. HISTÓRICO COMPLETO (JOGADAS + EXTRATO DA CARTEIRA)
 // =========================================================================
 $historico = [];
 
-// A) Busca todas as participações em Sorteios (Agrupadas por Sorteio)
+// A) Busca todas as Vendas/Jogadas
 $sql_vendas = "
     SELECT v.sorteio_id, s.titulo, s.categoria, s.numero_visual, s.valor_numero,
-           MAX(v.data_reserva) as data_acao,
-           MAX(v.forma_pagamento) as forma_pagamento,
-           MAX(v.status_venda) as status_venda,
+           MAX(v.data_reserva) as data_acao, MAX(v.forma_pagamento) as forma_pagamento, MAX(v.status_venda) as status_venda,
            GROUP_CONCAT(v.numero_escolhido ORDER BY v.numero_escolhido ASC SEPARATOR ', ') as numeros,
            COUNT(v.id) as qtd_comprada
     FROM vendas v
@@ -109,7 +114,8 @@ $res_v = $stmt_v->get_result();
 
 while ($r = $res_v->fetch_assoc()) {
     $sid = $r['sorteio_id'];
-    $historico[$sid] = [
+    $historico['V_' . $sid] = [
+        'is_transacao' => false,
         'sorteio_id' => $sid,
         'data' => $r['data_acao'],
         'titulo' => $r['titulo'],
@@ -117,36 +123,31 @@ while ($r = $res_v->fetch_assoc()) {
         'numero_visual' => $r['numero_visual'],
         'numeros' => $r['numeros'],
         'valor_total' => $r['qtd_comprada'] * $r['valor_numero'],
-        'forma_pagamento' => $r['forma_pagamento'], // <-- ADICIONADO AQUI
+        'forma_pagamento' => $r['forma_pagamento'],
         'status_venda' => $r['status_venda'],
         'premios' => [],
         'status_retirada' => 'pendente',
         'data_retirada' => null
     ];
 }
-// B) Varre a tabela de ganhadores para anexar os prêmios nas respectivas jogadas
-$sql_premios_g = "
-    SELECT DISTINCT gp.*, 
-           s.titulo, s.categoria, s.numero_visual, s.valor_numero 
+
+// B) Varre a tabela de Prêmios para anexar nas Vendas
+$stmt_p = $conn->prepare("
+    SELECT DISTINCT gp.*, s.titulo, s.categoria, s.numero_visual, s.valor_numero 
     FROM ganhadores_premios gp
     JOIN sorteios s ON gp.sorteio_id = s.id
     LEFT JOIN vendas v ON gp.sorteio_id = v.sorteio_id AND CAST(gp.numero_sorteado AS UNSIGNED) = CAST(v.numero_escolhido AS UNSIGNED)
-    WHERE gp.cliente_id = ? 
-       OR (gp.id_whatsapp = ? AND gp.id_whatsapp != '')
-       OR v.cliente_id = ? 
-       OR (v.id_whatsapp = ? AND v.id_whatsapp != '')
-";
-$stmt_p = $conn->prepare($sql_premios_g);
+    WHERE gp.cliente_id = ? OR (gp.id_whatsapp = ? AND gp.id_whatsapp != '') OR v.cliente_id = ? OR (v.id_whatsapp = ? AND v.id_whatsapp != '')
+");
 $stmt_p->bind_param("isis", $id, $id_whatsapp, $id, $id_whatsapp);
 $stmt_p->execute();
 $res_p = $stmt_p->get_result();
 
 while ($r = $res_p->fetch_assoc()) {
     $sid = $r['sorteio_id'];
-
-    // Se por acaso a venda foi deletada, mas o prêmio ficou, a gente recria o card visual
-    if (!isset($historico[$sid])) {
-        $historico[$sid] = [
+    if (!isset($historico['V_' . $sid])) {
+        $historico['V_' . $sid] = [
+            'is_transacao' => false,
             'sorteio_id' => $sid,
             'data' => $r['data_ganho'],
             'titulo' => $r['titulo'],
@@ -155,26 +156,45 @@ while ($r = $res_p->fetch_assoc()) {
             'numeros' => $r['numero_sorteado'],
             'valor_total' => $r['valor_numero'],
             'forma_pagamento' => null,
+            'status_venda' => 'ganhador',
             'premios' => [],
             'status_retirada' => 'pendente',
             'data_retirada' => null
         ];
     }
-
-    // Anexa o Prêmio e o número que ganhou
-    $historico[$sid]['premios'][] = $r['premio'] . ' (Nº ' . $r['numero_sorteado'] . ')';
-
-    // Atualiza status de retirada
+    $historico['V_' . $sid]['premios'][] = $r['premio'] . ' (Nº ' . $r['numero_sorteado'] . ')';
     $status = strtolower($r['status_retirada'] ?? 'pendente');
     if ($status === 'entregue' || $status === 'retirado') {
-        $historico[$sid]['status_retirada'] = 'entregue';
-
-        // Puxa a data de onde ela realmente existir
-        if (!empty($r['data_retirada'])) {
-            $historico[$sid]['data_retirada'] = $r['data_retirada'];
-        }
+        $historico['V_' . $sid]['status_retirada'] = 'entregue';
+        if (!empty($r['data_retirada']))
+            $historico['V_' . $sid]['data_retirada'] = $r['data_retirada'];
     }
 }
+
+// C) Busca as Transações de Carteira (Estornos, Recargas, Ajustes)
+$sql_trans = "SELECT id, tipo, valor, descricao, data_transacao FROM transacoes_carteira WHERE cliente_id = ? AND tipo NOT IN ('compra_saldo', 'compra_credito')";
+$stmt_t = $conn->prepare($sql_trans);
+$stmt_t->bind_param("i", $id);
+$stmt_t->execute();
+$res_t = $stmt_t->get_result();
+
+while ($r = $res_t->fetch_assoc()) {
+    $historico['T_' . $r['id']] = [
+        'is_transacao' => true,
+        'data' => $r['data_transacao'],
+        'titulo' => $r['descricao'],
+        'categoria' => 'CARTEIRA',
+        'numero_visual' => '',
+        'numeros' => '-',
+        'valor_total' => $r['valor'],
+        'forma_pagamento' => $r['tipo'],
+        'status_venda' => 'concluido',
+        'premios' => [],
+        'status_retirada' => '-',
+        'data_retirada' => null
+    ];
+}
+
 
 // ORDENAÇÃO E FILTRO DE RETIRADA
 $ordem = $_GET['ordem'] ?? 'data';
@@ -182,16 +202,12 @@ $historico_lista = array_values($historico);
 
 usort($historico_lista, function ($a, $b) use ($ordem) {
     if ($ordem === 'retirada') {
-        // Lógica de Prioridade: 1º Prêmios Pendentes | 2º Prêmios Entregues | 3º Sorteios Sem Prêmios
         $pesoA = count($a['premios']) > 0 ? ($a['status_retirada'] === 'pendente' ? 1 : 2) : 3;
         $pesoB = count($b['premios']) > 0 ? ($b['status_retirada'] === 'pendente' ? 1 : 2) : 3;
-
-        if ($pesoA === $pesoB) {
+        if ($pesoA === $pesoB)
             return strtotime($b['data']) - strtotime($a['data']);
-        }
         return $pesoA - $pesoB;
     } else {
-        // Ordenação Padrão por Data Mais Recente
         return strtotime($b['data']) - strtotime($a['data']);
     }
 });
@@ -201,23 +217,20 @@ $pagina = isset($_GET['pagina']) ? (int) $_GET['pagina'] : 1;
 if ($pagina < 1)
     $pagina = 1;
 
-$limite_por_pagina = 15;
+$limite_por_pagina = 25; // Aumentado para ver mais transações
 $total_registros = count($historico_lista);
 $total_paginas = ceil($total_registros / $limite_por_pagina);
 $offset = ($pagina - 1) * $limite_por_pagina;
 
 $historico_paginado = array_slice($historico_lista, $offset, $limite_por_pagina);
 
-// Função para formatar telefone
 function formatarTelefone($telefone)
 {
     $tel = preg_replace('/\D/', '', $telefone);
-    if (strlen($tel) == 13) {
+    if (strlen($tel) == 13)
         $tel = substr($tel, 2);
-    }
-    if (strlen($tel) == 11) {
+    if (strlen($tel) == 11)
         return '(' . substr($tel, 0, 2) . ') ' . substr($tel, 2, 5) . '-' . substr($tel, 7);
-    }
     return $telefone;
 }
 ?>
@@ -230,54 +243,11 @@ function formatarTelefone($telefone)
     <link rel="stylesheet" href="../assets/css/global.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="../assets/css/sidebar.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="../assets/css/detalhes_cliente.css?v=<?php echo time(); ?>">
-    <style>
-        .badge-pendente {
-            background: #fef3c7;
-            color: #b45309;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-weight: 800;
-            font-size: 11px;
-            white-space: nowrap;
-        }
-
-        .badge-entregue {
-            background: #dcfce7;
-            color: #16a34a;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-weight: 800;
-            font-size: 11px;
-            white-space: nowrap;
-        }
-
-        .texto-numeros {
-            max-width: 250px;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            font-size: 12px;
-            color: #475569;
-            line-height: 1.4;
-        }
-
-        .texto-numeros:hover {
-            -webkit-line-clamp: unset;
-            background: #f8fafc;
-            cursor: pointer;
-        }
-
-        .filtro-retirada:hover {
-            opacity: 0.8;
-        }
-    </style>
 </head>
 
 <body>
     <div class="layout-sistema">
-        <aside class="sidebar"><?php include '../componentes/sidebar.php'; ?></aside>
+        <aside class="sidebar"><?php include 'componentes/sidebar.php'; ?></aside>
 
         <main class="conteudo-principal">
             <div class="container">
@@ -297,62 +267,75 @@ function formatarTelefone($telefone)
                 </div>
 
                 <div class="financeiro-grid">
+
+                    <!-- SALDO EM CONTA -->
                     <div class="fin-card destaque">
                         <h4>💰 Saldo em Conta</h4>
                         <div class="valor">R$ <?php echo number_format($saldo, 2, ',', '.'); ?></div>
+                        <div class="legenda-mes">Dinheiro livre na carteira</div>
                         <a href="carteiras.php?cliente_id=<?php echo $id; ?>&acao=adicionar"
                             class="btn-adicionar-credito">
                             💲 Adicionar Crédito
                         </a>
                     </div>
 
-                    <div class="fin-card">
+                    <!-- CRÉDITO MENSAL PADRONIZADO -->
+                    <div class="fin-card" style="border-left: 5px solid #3b82f6;">
                         <h4>💳 Crédito Mensal</h4>
                         <?php if ($limite > 0): ?>
-                            <div class="valor">R$ <?php echo number_format($disponivel, 2, ',', '.'); ?></div>
-                            <div class="credito-bar-bg">
-                                <div class="credito-bar-fill"
-                                    style="width: <?php echo $porcentagem_uso; ?>%; background: <?php echo $porcentagem_uso > 90 ? '#ef4444' : '#22c55e'; ?>">
-                                </div>
+                            <div class="valor" style="color: #3b82f6;">R$
+                                <?php echo number_format($disponivel, 2, ',', '.'); ?>
                             </div>
-                            <div class="credito-text">
-                                <span>Usado: R$ <?php echo number_format($usado, 2, ',', '.'); ?></span>
-                                <span>Total: R$ <?php echo number_format($limite, 2, ',', '.'); ?></span>
+                            <div class="legenda-mes">Dívida Atual: R$ <?php echo number_format($usado, 2, ',', '.'); ?>
                             </div>
-                            <a href="credito_mensal.php" class="btn-gerenciar">⚙️ Gerenciar</a>
+                            <a href="credito_mensal.php" class="btn-adicionar-credito"
+                                style="background:#cbd5e1; color:#1e293b;">
+                                ⚙️ Gerenciar
+                            </a>
                         <?php else: ?>
-                            <div class="valor" style="color:#cbd5e1; font-size: 20px;">Bloqueado 🔒</div>
-                            <div style="font-size:11px; color:#94a3b8; margin-top:5px;">Pagamento apenas à vista.</div>
+                            <div class="valor" style="color:#94a3b8;">R$ 0,00</div>
+                            <div class="legenda-mes" style="color:#94a3b8;">Sem limite fiado ativo</div>
+                            <a href="credito_mensal.php" class="btn-adicionar-credito"
+                                style="background:#cbd5e1; color:#1e293b;">
+                                ⚙️ Ativar Fiado
+                            </a>
                         <?php endif; ?>
                     </div>
 
-                    <div class="fin-card">
-                        <h4>🎮 Total Jogado</h4>
-                        <div class="valor" style="color:#6366f1"><?php echo $total_jogadas; ?></div>
-                        <div style="font-size:11px; color:#64748b;">Números comprados</div>
+                    <!-- TOTAL JOGADO -->
+                    <div class="fin-card" style="border-left: 5px solid #8b5cf6;">
+                        <h4>🎮 Total Jogado (Mês)</h4>
+                        <div class="valor" style="color:#8b5cf6"><?php echo $total_jogadas_mes; ?></div>
+                        <div class="legenda-mes">Números no mês atual</div>
+                        <div class="legenda-geral">Geral/Sempre: <b><?php echo $total_jogadas_geral; ?></b> compras
+                        </div>
                     </div>
 
-                    <div class="fin-card">
-                        <h4>🏆 Prêmios</h4>
-                        <div class="valor" style="color:#f59e0b"><?php echo $total_premios; ?></div>
-                        <div style="font-size:11px; color:#64748b;">Total arrecadado</div>
+                    <!-- PRÊMIOS -->
+                    <div class="fin-card" style="border-left: 5px solid #f59e0b;">
+                        <h4>🏆 Prêmios (Mês)</h4>
+                        <div class="valor" style="color:#f59e0b"><?php echo $total_premios_mes; ?></div>
+                        <div class="legenda-mes">Prêmios ganhos no mês atual</div>
+                        <div class="legenda-geral">Geral/Sempre: <b><?php echo $total_premios_geral; ?></b> prêmios
+                        </div>
                     </div>
+
                 </div>
 
                 <div class="historico-container">
                     <div
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h3 style="margin: 0;">📜 Histórico de Jogadas</h3>
+                        <h3 style="margin: 0;">📜 Histórico Financeiro e Jogadas</h3>
                     </div>
 
                     <table class="tabela-historico">
                         <thead>
                             <tr>
                                 <th>Data/Hora</th>
-                                <th>Sorteio</th>
+                                <th>Ação / Sorteio</th>
                                 <th>Números Jogados</th>
                                 <th>Valor Total</th>
-                                <th>Pagamento</th>
+                                <th>Origem / Destino</th>
                                 <th>Prêmio</th>
                                 <th>
                                     <a href="?id=<?php echo $id; ?>&ordem=<?php echo ($ordem == 'retirada' ? 'data' : 'retirada'); ?>"
@@ -366,68 +349,106 @@ function formatarTelefone($telefone)
                         <tbody>
                             <?php if (count($historico_paginado) > 0): ?>
                                 <?php foreach ($historico_paginado as $h):
-                                    $data_formatada = date('d/m/Y H:i', strtotime($h['data']));
-
-                                    // Cor da categoria
-                                    $cat = strtolower($h['categoria'] ?? '');
-                                    $cor_cat = '#64748b';
-                                    if ($cat == 'carnes')
-                                        $cor_cat = '#ef4444';
-                                    if ($cat == 'bebidas')
-                                        $cor_cat = '#f59e0b';
-                                    if ($cat == 'testes')
-                                        $cor_cat = '#8b5cf6';
-
+                                    $data_formatada = date('d/m/y H:i', strtotime($h['data']));
+                                    $is_transacao = isset($h['is_transacao']) && $h['is_transacao'];
                                     $tem_premio = count($h['premios']) > 0;
+
+                                    // Cor do fundo para Prêmios ou Estornos
+                                    $bg_tr = '';
+                                    if ($tem_premio)
+                                        $bg_tr = 'background-color: #fefce8;';
+                                    if ($h['status_venda'] === 'estornado' || ($is_transacao && strpos(strtolower($h['forma_pagamento']), 'estorno') !== false))
+                                        $bg_tr = 'background-color: #fef2f2;';
                                     ?>
-                                    <tr style="<?php echo $tem_premio ? 'background-color: #fefce8;' : ''; ?>">
+                                    <tr style="<?php echo $bg_tr; ?>">
+
+                                        <!-- DATA -->
                                         <td
                                             style="white-space:nowrap; font-size:12px; color:#64748b; font-weight: 600; padding: 10px;">
                                             <?php echo $data_formatada; ?>
                                         </td>
 
+                                        <!-- NOME DA AÇÃO / SORTEIO -->
                                         <td style="padding: 10px;">
-                                            <span
-                                                style="background:<?php echo $cor_cat; ?>; color:white; padding:2px 6px; border-radius:4px; font-size:9px; font-weight:900; text-transform:uppercase; margin-right:4px;">
-                                                <?php echo htmlspecialchars($cat); ?>
-                                            </span>
-                                            <strong
-                                                style="color:#1e293b; font-size:12px;"><?php echo htmlspecialchars($h['titulo']); ?></strong>
-                                            <?php if (!empty($h['numero_visual'])): ?>
-                                                <small
-                                                    style="color:#94a3b8; font-weight:bold;">#<?php echo str_pad($h['numero_visual'], 2, '0', STR_PAD_LEFT); ?></small>
+                                            <?php if ($is_transacao): ?>
+                                                <strong style="color:#1e293b; font-size:12px;">💸
+                                                    <?php echo htmlspecialchars($h['titulo']); ?></strong>
+                                            <?php else:
+                                                $cat = strtolower($h['categoria'] ?? '');
+                                                $cor_cat = '#64748b';
+                                                if ($cat == 'carnes')
+                                                    $cor_cat = '#ef4444';
+                                                if ($cat == 'bebidas')
+                                                    $cor_cat = '#f59e0b';
+                                                ?>
+                                                <span
+                                                    style="background:<?php echo $cor_cat; ?>; color:white; padding:2px 6px; border-radius:4px; font-size:9px; font-weight:900; text-transform:uppercase; margin-right:4px;">
+                                                    <?php echo htmlspecialchars($cat); ?>
+                                                </span>
+                                                <strong
+                                                    style="color:#1e293b; font-size:12px;"><?php echo htmlspecialchars($h['titulo']); ?></strong>
+                                                <?php if (!empty($h['numero_visual'])): ?>
+                                                    <small
+                                                        style="color:#94a3b8; font-weight:bold;">#<?php echo str_pad($h['numero_visual'], 2, '0', STR_PAD_LEFT); ?></small>
+                                                <?php endif; ?>
                                             <?php endif; ?>
                                         </td>
 
+                                        <!-- NÚMEROS -->
                                         <td style="padding: 10px;">
-                                            <div class="texto-numeros" title="<?php echo htmlspecialchars($h['numeros']); ?>">
-                                                <?php echo htmlspecialchars($h['numeros']); ?>
-                                            </div>
+                                            <?php if ($is_transacao): ?>
+                                                <span style="color:#cbd5e1;">-</span>
+                                            <?php else: ?>
+                                                <div class="texto-numeros" title="<?php echo htmlspecialchars($h['numeros']); ?>">
+                                                    <?php echo htmlspecialchars($h['numeros']); ?>
+                                                </div>
+                                            <?php endif; ?>
                                         </td>
 
-                                        <td style="font-weight:900; color:#16a34a; white-space:nowrap; padding: 10px;">
-                                            R$ <?php echo number_format($h['valor_total'], 2, ',', '.'); ?>
+                                        <!-- VALOR -->
+                                        <td
+                                            style="font-weight:900; color:<?php echo $is_transacao ? '#16a34a' : '#1e293b'; ?>; white-space:nowrap; padding: 10px;">
+                                            <?php echo $is_transacao ? '+ R$' : 'R$'; ?>
+                                            <?php echo number_format($h['valor_total'], 2, ',', '.'); ?>
                                         </td>
 
+                                        <!-- FORMA/ORIGEM -->
                                         <td style="padding: 10px;">
                                             <?php
                                             $forma = strtolower($h['forma_pagamento'] ?? '');
-                                            $is_estornado = ($h['status_venda'] === 'estornado');
 
-                                            if ($is_estornado) {
-                                                echo '<span style="background:#fef2f2; padding:4px 8px; border-radius:4px; font-size:10px; font-weight:800; color:#ef4444; text-transform:uppercase;">ESTORNADO</span>';
-                                            } elseif ($forma === 'carteira_credito') {
-                                                echo '<span style="background:#f1f5f9; padding:4px 8px; border-radius:4px; font-size:10px; font-weight:800; color:#475569; text-transform:uppercase;">MENSAL</span>';
-                                            } elseif ($forma === 'carteira_saldo' || $forma === 'carteira') {
-                                                echo '<span style="background:#f1f5f9; padding:4px 8px; border-radius:4px; font-size:10px; font-weight:800; color:#475569; text-transform:uppercase;">CARTEIRA</span>';
-                                            } elseif (!empty($forma)) {
-                                                echo '<span style="background:#f1f5f9; padding:4px 8px; border-radius:4px; font-size:10px; font-weight:800; color:#475569; text-transform:uppercase;">PIX DIRETO</span>';
+                                            if ($is_transacao) {
+                                                // TAGS PARA MOVIMENTAÇÃO DE CARTEIRA (ENTRADA DE DINHEIRO)
+                                                $desc_lower = strtolower($h['titulo'] ?? '');
+                                                if (strpos($forma, 'estorno') !== false) {
+                                                    echo '<span class="badge-estorno">+ ESTORNO PRA CARTEIRA</span>';
+                                                } elseif (strpos($forma, 'recarga_pix') !== false || strpos($desc_lower, 'whatsapp') !== false) {
+                                                    echo '<span class="badge-recarga">+ RECARGA PIX (BOT)</span>';
+                                                } elseif ($forma === 'recarga_manual' || strpos($desc_lower, 'saldo inicial') !== false || strpos($desc_lower, 'adicionado') !== false || strpos($desc_lower, 'pelo administrador') !== false) {
+                                                    echo '<span class="badge-admin">+ SALDO ADMIN</span>';
+                                                } elseif (strpos($desc_lower, 'crédito') !== false || strpos($desc_lower, 'limite') !== false || strpos($desc_lower, 'fatura') !== false) {
+                                                    echo '<span class="badge-mensal">CRÉDITO MENSAL</span>';
+                                                } else {
+                                                    echo '<span class="badge-admin">AJUSTE SISTEMA</span>';
+                                                }
                                             } else {
-                                                echo '<span style="color:#cbd5e1">-</span>';
+                                                // TAGS PARA COMPRA DE SORTEIO (SAÍDA DE DINHEIRO)
+                                                if ($h['status_venda'] === 'estornado') {
+                                                    echo '<span class="badge-falha">ESTORNADO</span>';
+                                                } elseif ($forma === 'carteira_credito') {
+                                                    echo '<span class="badge-mensal">FIADO MENSAL</span>';
+                                                } elseif ($forma === 'carteira_saldo' || $forma === 'carteira' || $forma === 'carteira_misto') {
+                                                    echo '<span class="badge-saldo">SALDO CARTEIRA</span>';
+                                                } elseif ($forma === '' || $forma === null) {
+                                                    echo '<span class="badge-admin-pago">PAGO ADMIN</span>';
+                                                } else {
+                                                    echo '<span class="badge-pix">PIX DIRETO</span>';
+                                                }
                                             }
                                             ?>
                                         </td>
 
+                                        <!-- PRÊMIO -->
                                         <td
                                             style="font-weight:700; color:#d97706; font-size: 12px; line-height: 1.5; padding: 10px;">
                                             <?php if ($tem_premio): ?>
@@ -437,6 +458,7 @@ function formatarTelefone($telefone)
                                             <?php endif; ?>
                                         </td>
 
+                                        <!-- STATUS DA RETIRADA -->
                                         <td style="padding: 10px;">
                                             <?php
                                             if ($tem_premio) {
@@ -455,7 +477,7 @@ function formatarTelefone($telefone)
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="7" class="sem-dados">Nenhuma jogada encontrada para este cliente.</td>
+                                    <td colspan="7" class="sem-dados">Nenhum histórico encontrado para este cliente.</td>
                                 </tr>
                             <?php endif; ?>
                         </tbody>

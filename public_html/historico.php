@@ -22,7 +22,7 @@ $abaAtiva = (isset($_GET['tab']) && in_array($_GET['tab'], ['carnes','bebidas','
 $filtroData = isset($_GET['data']) && $_GET['data'] != '' ? $_GET['data'] : date('Y-m-d');
 $busca = isset($_GET['q']) ? $conn->real_escape_string($_GET['q']) : '';
 
-$where = " AND s.categoria = '$abaAtiva' AND DATE(gp.data_ganho) = '$filtroData' ";
+$where = " AND DATE(gp.data_ganho) = '$filtroData' ";
 if ($busca) {
     $where .= " AND (gp.nome_cliente LIKE '%$busca%' OR v.telefone LIKE '%$busca%')";
 }

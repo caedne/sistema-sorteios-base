@@ -21,34 +21,45 @@ if ($checkCol2->num_rows == 0) {
     $conn->query("ALTER TABLE sorteios ADD COLUMN imagem2 VARCHAR(255) DEFAULT NULL");
 }
 
-function uploadArquivo($file)
+function uploadArquivo($file, &$erro = null)
 {
-    if (isset($file) && $file['error'] == 0) {
-        $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
-        $novoNome = uniqid() . "." . $ext;
-        $destino = "assets/uploads/" . $novoNome;
-        if (move_uploaded_file($file['tmp_name'], $destino))
-            return $novoNome;
+    // Nenhum arquivo enviado (campo deixado em branco) -> não é erro, apenas ignora
+    if (!isset($file) || $file['error'] == UPLOAD_ERR_NO_FILE) {
+        return null;
     }
+
+    // Houve tentativa de upload, mas deu erro -> capturamos o motivo real
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        $mensagens = [
+            UPLOAD_ERR_INI_SIZE => 'O arquivo excede o tamanho máximo permitido pelo servidor (upload_max_filesize no php.ini).',
+            UPLOAD_ERR_FORM_SIZE => 'O arquivo excede o tamanho máximo permitido pelo formulário.',
+            UPLOAD_ERR_PARTIAL => 'O upload foi enviado apenas parcialmente (conexão interrompida).',
+            UPLOAD_ERR_NO_TMP_DIR => 'Pasta temporária ausente no servidor.',
+            UPLOAD_ERR_CANT_WRITE => 'Falha ao escrever o arquivo em disco (permissão).',
+            UPLOAD_ERR_EXTENSION => 'Upload interrompido por uma extensão do PHP.',
+        ];
+        $erro = $mensagens[$file['error']] ?? ('Erro desconhecido no upload (código ' . $file['error'] . ').');
+        return null;
+    }
+
+    $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+    $novoNome = uniqid() . "." . $ext;
+    $destino = "assets/uploads/" . $novoNome;
+    if (move_uploaded_file($file['tmp_name'], $destino)) {
+        return $novoNome;
+    }
+
+    $erro = 'Não foi possível mover o arquivo para assets/uploads/ (verifique se a pasta existe e tem permissão de escrita).';
     return null;
 }
 
 function obterProximoNumeroUnico($conn)
 {
-    $conn->query("CREATE TABLE IF NOT EXISTS contador_categorias (
-        id INT PRIMARY KEY AUTO_INCREMENT, categoria VARCHAR(50) NOT NULL UNIQUE, proximo_numero INT NOT NULL DEFAULT 1
-    )");
-    $sql = "SELECT proximo_numero FROM contador_categorias WHERE categoria = 'geral'";
-    $res = $conn->query($sql);
-    if ($res && $res->num_rows > 0) {
-        $row = $res->fetch_assoc();
-        $numero = $row['proximo_numero'];
-        $conn->query("UPDATE contador_categorias SET proximo_numero = proximo_numero + 1 WHERE categoria = 'geral'");
-    } else {
-        $conn->query("INSERT INTO contador_categorias (categoria, proximo_numero) VALUES ('geral', 2)");
-        $numero = 1;
-    }
-    return $numero;
+    // Considera apenas sorteios que já estão (ou já estiveram) rodando de fato.
+    // Modelos (status='inativo') NÃO contam aqui, para não "reservar" números à toa.
+    $res = $conn->query("SELECT MAX(CAST(numero_visual AS UNSIGNED)) as max_val FROM sorteios WHERE status IN ('ativo','fila','arquivado')");
+    $row = $res->fetch_assoc();
+    return ($row['max_val'] ? $row['max_val'] + 1 : 1);
 }
 
 // ==========================================
@@ -80,13 +91,26 @@ if (isset($_POST['acao']) && $_POST['acao'] == 'reordenar') {
 // 1. SALVAR NOVO
 if (isset($_POST['acao']) && $_POST['acao'] == 'novo') {
     $titulo_digitado = $conn->real_escape_string($_POST['titulo_parcial']);
-    $proximoNumeroVisual = obterProximoNumeroUnico($conn);
+    $proximoNumeroVisual = 0; // Modelos não têm número "real" ainda — só ganham um número de verdade quando ativados
     $valor = str_replace(',', '.', $_POST['valor']);
     $qtd_numeros = intval($_POST['qtd_numeros']);
 
-    $imagem = uploadArquivo($_FILES['imagem']);
-    $imagem2 = uploadArquivo($_FILES['imagem2']);
-    $video = uploadArquivo($_FILES['video']);
+    $erroUpload = null;
+    $imagem = uploadArquivo($_FILES['imagem'], $erroUpload);
+    if ($erroUpload) {
+        echo "<script>alert('❌ Falha ao enviar FOTO 1: $erroUpload'); window.location.href='selecionar_jogo.php';</script>";
+        exit;
+    }
+    $imagem2 = uploadArquivo($_FILES['imagem2'], $erroUpload);
+    if ($erroUpload) {
+        echo "<script>alert('❌ Falha ao enviar FOTO 2: $erroUpload'); window.location.href='selecionar_jogo.php';</script>";
+        exit;
+    }
+    $video = uploadArquivo($_FILES['video'], $erroUpload);
+    if ($erroUpload) {
+        echo "<script>alert('❌ Falha ao enviar o VÍDEO: $erroUpload'); window.location.href='selecionar_jogo.php';</script>";
+        exit;
+    }
 
     $premios = [];
     if (isset($_POST['premios'])) {
@@ -120,8 +144,14 @@ if (isset($_POST['acao']) && $_POST['acao'] == 'editar') {
     $qtd_numeros = intval($_POST['qtd_numeros']);
     $updateMidia = "";
 
+    $erroUpload = null;
+
     // IMAGEM 1
-    $novaImg = uploadArquivo($_FILES['imagem']);
+    $novaImg = uploadArquivo($_FILES['imagem'], $erroUpload);
+    if ($erroUpload) {
+        echo "<script>alert('❌ Falha ao enviar FOTO 1: $erroUpload'); window.location.href='selecionar_jogo.php';</script>";
+        exit;
+    }
     if ($novaImg) {
         if (!empty($check['imagem']) && file_exists("assets/uploads/" . $check['imagem'])) {
             unlink("assets/uploads/" . $check['imagem']);
@@ -135,7 +165,12 @@ if (isset($_POST['acao']) && $_POST['acao'] == 'editar') {
     }
 
     // IMAGEM 2
-    $novaImg2 = uploadArquivo($_FILES['imagem2']);
+    $erroUpload = null;
+    $novaImg2 = uploadArquivo($_FILES['imagem2'], $erroUpload);
+    if ($erroUpload) {
+        echo "<script>alert('❌ Falha ao enviar FOTO 2: $erroUpload'); window.location.href='selecionar_jogo.php';</script>";
+        exit;
+    }
     if ($novaImg2) {
         if (!empty($check['imagem2']) && file_exists("assets/uploads/" . $check['imagem2'])) {
             unlink("assets/uploads/" . $check['imagem2']);
@@ -149,7 +184,12 @@ if (isset($_POST['acao']) && $_POST['acao'] == 'editar') {
     }
 
     // VÍDEO
-    $novoVid = uploadArquivo($_FILES['video']);
+    $erroUpload = null;
+    $novoVid = uploadArquivo($_FILES['video'], $erroUpload);
+    if ($erroUpload) {
+        echo "<script>alert('❌ Falha ao enviar o VÍDEO: $erroUpload'); window.location.href='selecionar_jogo.php';</script>";
+        exit;
+    }
     if ($novoVid) {
         if (!empty($check['video']) && file_exists("assets/uploads/" . $check['video'])) {
             unlink("assets/uploads/" . $check['video']);
@@ -161,7 +201,7 @@ if (isset($_POST['acao']) && $_POST['acao'] == 'editar') {
         }
         $updateMidia .= ", video=NULL";
     }
-
+    // IMPORTANTE: Se $novoVid for falso e apagar_video for '0', a query acima de updateMidia vai ignorar a coluna 'video', e o arquivo continuará intacto no banco!
     $premios = implode("|||", array_filter($_POST['premios']));
 
     $sql = "UPDATE sorteios SET titulo='$titulo', valor_numero='$valor', qtd_numeros=$qtd_numeros, premios='$premios' $updateMidia WHERE id=$id";
@@ -180,7 +220,7 @@ if (isset($_POST['acao']) && $_POST['acao'] == 'ativar') {
     $resOrdem = $conn->query("SELECT MAX(ordem_fila) as max_ordem FROM sorteios WHERE status = 'fila'");
     $ordemNova = ($temAtivo) ? (intval($resOrdem->fetch_assoc()['max_ordem']) + 1) : 0;
 
-    $resNum = $conn->query("SELECT MAX(numero_visual) as max_id FROM sorteios");
+    $resNum = $conn->query("SELECT MAX(CAST(numero_visual AS UNSIGNED)) as max_id FROM sorteios WHERE status IN ('ativo','fila','arquivado')");
     $rowNum = $resNum->fetch_assoc();
     $novoNum = ($rowNum['max_id']) ? $rowNum['max_id'] + 1 : 1;
 
@@ -224,7 +264,8 @@ if (isset($_POST['acao']) && $_POST['acao'] == 'excluir') {
 }
 
 // --- DADOS DA PÁGINA ---
-$proximoNumeroGeral = ($conn->query("SELECT proximo_numero FROM contador_categorias WHERE categoria = 'geral'")->fetch_assoc()['proximo_numero'] ?? 1);
+$resMax = $conn->query("SELECT MAX(CAST(numero_visual AS UNSIGNED)) as max_val FROM sorteios WHERE status IN ('ativo','fila','arquivado')");
+$proximoNumeroGeral = ($resMax->fetch_assoc()['max_val'] ?? 0) + 1;
 $idAtivoGeral = ($conn->query("SELECT id FROM sorteios WHERE status = 'ativo' LIMIT 1")->fetch_assoc()['id'] ?? 0);
 
 $resTitulos = $conn->query("SELECT titulo, COUNT(*) as freq FROM sorteios GROUP BY titulo ORDER BY freq DESC LIMIT 50");
@@ -545,13 +586,13 @@ $historicoPremios = array_slice(array_keys($freqPremios), 0, 50);
             document.getElementById('edit_id').value = id;
             document.getElementById('apagar_imagem').value = "0"; document.getElementById('apagar_imagem2').value = "0"; document.getElementById('apagar_video').value = "0";
 
-            document.getElementById('badge_id_editar').innerText = 'Próximo: #' + String(proximoNumeroGeral).padStart(2, '0');
+            document.getElementById('badge_id_editar').innerText = 'Sorteio #' + String(num).padStart(2, '0');
             document.getElementById('edit_titulo').value = titulo; document.getElementById('edit_valor').value = valor; document.getElementById('edit_qtd').value = qtd;
 
             const pImg = document.getElementById('preview-img'); const pImg2 = document.getElementById('preview-img2-edit'); const pVid = document.getElementById('preview-vid');
             pImg.innerHTML = img ? `<div id="box-img-atual" style="text-align:center;"><img src="assets/uploads/${img}" class="thumb" onclick="verMidia('assets/uploads/${img}', 'img')"><br><span onclick="removerMidia('imagem')" class="btn-remove-media">🗑️ APAGAR FOTO 1</span></div>` : '';
             pImg2.innerHTML = img2 ? `<div id="box-img2-atual" style="text-align:center;"><img src="assets/uploads/${img2}" class="thumb" onclick="verMidia('assets/uploads/${img2}', 'img')"><br><span onclick="removerMidia('imagem2')" class="btn-remove-media">🗑️ APAGAR FOTO 2</span></div>` : '';
-            pVid.innerHTML = vid ? `<div id="box-vid-atual" style="text-align:center;"><div class="thumb vid-thumb" onclick="verMidia('assets/uploads/${vid}', 'vid')">🎥 VÍDEO ATUAL</div><br><span onclick="removerMidia('video')" class="btn-remove-media">🗑️ APAGAR VÍDEO</span></div>` : '';
+            pVid.innerHTML = vid ? `<div id="box-vid-atual" style="text-align:center;"><video src="assets/uploads/${vid}" class="thumb" onclick="verMidia('assets/uploads/${vid}', 'vid')" style="object-fit: cover;" muted preload="metadata"></video><br><span onclick="removerMidia('video')" class="btn-remove-media">🗑️ APAGAR VÍDEO</span></div>` : '';
 
             document.getElementById('edit_premios_container').innerHTML = '';
             document.getElementById('input_img_edit').value = '';
@@ -576,10 +617,21 @@ $historicoPremios = array_slice(array_keys($freqPremios), 0, 50);
         function previewUpload(input, previewId) {
             const box = document.getElementById(previewId);
             if (input.files && input.files[0]) {
+                const file = input.files[0];
                 const reader = new FileReader();
-                reader.onload = e => box.innerHTML = input.files[0].type.startsWith('image/') ? `<img src="${e.target.result}" class="thumb">` : `<div class="thumb vid-thumb">🎥 NOVO VÍDEO</div>`;
-                reader.readAsDataURL(input.files[0]);
-            } else box.innerHTML = '';
+                reader.onload = e => {
+                    if (file.type.startsWith('image/')) {
+                        box.innerHTML = `<img src="${e.target.result}" class="thumb">`;
+                    } else if (file.type.startsWith('video/')) {
+                        box.innerHTML = `<video src="${e.target.result}" class="thumb" muted preload="metadata" style="max-height: 100px; object-fit: cover;"></video><br><span style="font-size:10px; color:#64748b; font-weight:bold;">✅ PRÉVIA PRONTA</span>`;
+                    } else {
+                        box.innerHTML = `<div class="thumb vid-thumb">🎥 ARQUIVO INVÁLIDO</div>`;
+                    }
+                };
+                reader.readAsDataURL(file);
+            } else {
+                box.innerHTML = '';
+            }
         }
 
         function gerarInputsPremios(contId, qtd, modo) {
